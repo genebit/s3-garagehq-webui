@@ -1,19 +1,25 @@
 import Button from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus } from "lucide-react";
-import { Modal } from "react-daisyui";
 import { useForm } from "react-hook-form";
-import { useDisclosure } from "@/hooks/useDisclosure";
 import { createBucketSchema, CreateBucketSchema } from "../schema";
 import { InputField } from "@/components/ui/input";
 import { useCreateBucket } from "../hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { handleError } from "@/lib/utils";
 import { toast } from "sonner";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 const CreateBucketDialog = () => {
-  const { dialogRef, isOpen, onOpen, onClose } = useDisclosure();
+  const [isOpen, setOpen] = useState(false);
   const form = useForm<CreateBucketSchema>({
     resolver: zodResolver(createBucketSchema),
     defaultValues: { globalAlias: "" },
@@ -21,12 +27,12 @@ const CreateBucketDialog = () => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (isOpen) form.setFocus("globalAlias");
+    if (isOpen) form.reset({ globalAlias: "" });
   }, [isOpen]);
 
   const createBucket = useCreateBucket({
     onSuccess: () => {
-      onClose();
+      setOpen(false);
       queryClient.invalidateQueries({ queryKey: ["buckets"] });
       toast.success("Bucket created!");
     },
@@ -38,33 +44,37 @@ const CreateBucketDialog = () => {
   });
 
   return (
-    <>
-      <Button icon={Plus} color="primary" onClick={onOpen}>
+    <Dialog open={isOpen} onOpenChange={setOpen}>
+      <Button variant="default" icon={Plus} onClick={() => setOpen(true)}>
         Create Bucket
       </Button>
 
-      <Modal ref={dialogRef} backdrop open={isOpen}>
-        <Modal.Header className="mb-1">Create New Bucket</Modal.Header>
-        <Modal.Body>
-          <p>Enter the details of the bucket you wish to create.</p>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create New Bucket</DialogTitle>
+          <DialogDescription>
+            Enter the details of the bucket you wish to create.
+          </DialogDescription>
+        </DialogHeader>
 
-          <form onSubmit={onSubmit}>
-            <InputField form={form} name="globalAlias" title="Bucket Name" />
-          </form>
-        </Modal.Body>
+        <form onSubmit={onSubmit}>
+          <InputField form={form} name="globalAlias" title="Bucket Name" />
+        </form>
 
-        <Modal.Actions>
-          <Button onClick={onClose}>Cancel</Button>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
           <Button
-            color="primary"
+            variant="default"
             disabled={createBucket.isPending}
             onClick={onSubmit}
           >
             Submit
           </Button>
-        </Modal.Actions>
-      </Modal>
-    </>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 

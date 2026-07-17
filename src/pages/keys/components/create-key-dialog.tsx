@@ -1,9 +1,15 @@
 import Button from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus } from "lucide-react";
-import { Modal } from "react-daisyui";
 import { useForm, useWatch } from "react-hook-form";
-import { useDisclosure } from "@/hooks/useDisclosure";
 import { createKeySchema, CreateKeySchema } from "../schema";
 import { InputField } from "@/components/ui/input";
 import { CheckboxField } from "@/components/ui/checkbox";
@@ -11,10 +17,10 @@ import { useCreateKey } from "../hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { handleError } from "@/lib/utils";
 import { toast } from "sonner";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 const CreateKeyDialog = () => {
-  const { dialogRef, isOpen, onOpen, onClose } = useDisclosure();
+  const [isOpen, setOpen] = useState(false);
   const form = useForm<CreateKeySchema>({
     resolver: zodResolver(createKeySchema),
     defaultValues: { name: "" },
@@ -23,12 +29,12 @@ const CreateKeyDialog = () => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (isOpen) form.setFocus("name");
+    if (isOpen) form.reset({ name: "" });
   }, [isOpen]);
 
   const createKey = useCreateKey({
     onSuccess: () => {
-      onClose();
+      setOpen(false);
       queryClient.invalidateQueries({ queryKey: ["keys"] });
       toast.success("Key created!");
     },
@@ -40,54 +46,49 @@ const CreateKeyDialog = () => {
   });
 
   return (
-    <>
-      <Button icon={Plus} color="primary" onClick={onOpen}>
+    <Dialog open={isOpen} onOpenChange={setOpen}>
+      <Button variant="default" icon={Plus} onClick={() => setOpen(true)}>
         Create Key
       </Button>
 
-      <Modal ref={dialogRef} backdrop open={isOpen}>
-        <Modal.Header className="mb-1">Create New Key</Modal.Header>
-        <Modal.Body>
-          <p>Enter the details of the key you wish to create.</p>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Create New Key</DialogTitle>
+          <DialogDescription>
+            Enter the details of the key you wish to create.
+          </DialogDescription>
+        </DialogHeader>
 
-          <form onSubmit={onSubmit}>
-            <InputField form={form} name="name" title="Key Name" />
-            <CheckboxField
-              form={form}
-              name="isImport"
-              label="Import existing"
-              className="mt-2"
-            />
+        <form onSubmit={onSubmit} className="flex flex-col gap-3">
+          <InputField form={form} name="name" title="Key Name" />
+          <CheckboxField form={form} name="isImport" label="Import existing" />
 
-            {isImport && (
-              <>
-                <InputField
-                  form={form}
-                  name="accessKeyId"
-                  title="Access Key ID"
-                />
-                <InputField
-                  form={form}
-                  name="secretAccessKey"
-                  title="Secret Access Key"
-                />
-              </>
-            )}
-          </form>
-        </Modal.Body>
+          {isImport && (
+            <>
+              <InputField form={form} name="accessKeyId" title="Access Key ID" />
+              <InputField
+                form={form}
+                name="secretAccessKey"
+                title="Secret Access Key"
+              />
+            </>
+          )}
+        </form>
 
-        <Modal.Actions>
-          <Button onClick={onClose}>Cancel</Button>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
           <Button
-            color="primary"
+            variant="default"
             disabled={createKey.isPending}
             onClick={onSubmit}
           >
             Submit
           </Button>
-        </Modal.Actions>
-      </Modal>
-    </>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 

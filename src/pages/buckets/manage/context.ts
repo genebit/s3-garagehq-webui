@@ -5,6 +5,7 @@ export const BucketContext = createContext<{
   bucket: Bucket;
   refetch: () => void;
   bucketName: string;
+  canManage: boolean;
 } | null>(null);
 
 export const useBucketContext = () => {

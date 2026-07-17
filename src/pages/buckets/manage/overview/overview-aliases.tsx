@@ -1,7 +1,12 @@
-import { Modal } from "react-daisyui";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Plus } from "lucide-react";
 import Chips from "@/components/ui/chips";
-import { useDisclosure } from "@/hooks/useDisclosure";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { AddAliasSchema, addAliasSchema } from "../schema";
@@ -10,12 +15,12 @@ import { useAddAlias, useRemoveAlias } from "../hooks";
 import { toast } from "sonner";
 import { handleError } from "@/lib/utils";
 import { InputField } from "@/components/ui/input";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useBucketContext } from "../context";
 
 const AliasesSection = () => {
-  const { bucket: data } = useBucketContext();
+  const { bucket: data, canManage } = useBucketContext();
 
   const queryClient = useQueryClient();
   const removeAlias = useRemoveAlias(data?.id, {
@@ -35,23 +40,26 @@ const AliasesSection = () => {
   const aliases = data?.globalAliases || [];
 
   return (
-    <div className="mt-2">
-      <p className="inline label label-text">Aliases</p>
+    <div>
+      <p className="text-sm font-medium">Aliases</p>
 
-      <div className="flex flex-row flex-wrap gap-2 mt-2">
+      <div className="mt-2 flex flex-row flex-wrap gap-2">
         {aliases.map((alias: string) => (
-          <Chips key={alias} onRemove={() => onRemoveAlias(alias)}>
+          <Chips
+            key={alias}
+            onRemove={canManage ? () => onRemoveAlias(alias) : undefined}
+          >
             {alias}
           </Chips>
         ))}
-        <AddAliasDialog id={data?.id} />
+        {canManage ? <AddAliasDialog id={data?.id} /> : null}
       </div>
     </div>
   );
 };
 
 const AddAliasDialog = ({ id }: { id?: string }) => {
-  const { dialogRef, isOpen, onOpen, onClose } = useDisclosure();
+  const [isOpen, setOpen] = useState(false);
   const form = useForm<AddAliasSchema>({
     resolver: zodResolver(addAliasSchema),
     defaultValues: { alias: "" },
@@ -59,13 +67,13 @@ const AddAliasDialog = ({ id }: { id?: string }) => {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    if (isOpen) form.setFocus("alias");
+    if (isOpen) form.reset({ alias: "" });
   }, [isOpen]);
 
   const addAlias = useAddAlias(id, {
     onSuccess: () => {
       form.reset();
-      onClose();
+      setOpen(false);
       toast.success("Alias added!");
       queryClient.invalidateQueries({ queryKey: ["bucket", id] });
     },
@@ -77,32 +85,34 @@ const AddAliasDialog = ({ id }: { id?: string }) => {
   });
 
   return (
-    <>
-      <Button size="sm" onClick={onOpen} icon={Plus}>
+    <Dialog open={isOpen} onOpenChange={setOpen}>
+      <Button variant="outline" size="sm" icon={Plus} onClick={() => setOpen(true)}>
         Add Alias
       </Button>
 
-      <Modal ref={dialogRef} open={isOpen}>
-        <Modal.Header>Add Alias</Modal.Header>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add Alias</DialogTitle>
+        </DialogHeader>
 
-        <Modal.Body>
-          <form onSubmit={onSubmit}>
-            <InputField form={form} name="alias" title="Name" />
-          </form>
-        </Modal.Body>
+        <form onSubmit={onSubmit}>
+          <InputField form={form} name="alias" title="Name" />
+        </form>
 
-        <Modal.Actions>
-          <Button onClick={onClose}>Cancel</Button>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
           <Button
-            color="primary"
+            variant="default"
             onClick={onSubmit}
             disabled={addAlias.isPending}
           >
             Submit
           </Button>
-        </Modal.Actions>
-      </Modal>
-    </>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 

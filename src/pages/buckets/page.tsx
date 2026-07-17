@@ -1,13 +1,15 @@
 import Page from "@/context/page-context";
 import { useBuckets } from "./hooks";
-import { Input } from "react-daisyui";
+import Input from "@/components/ui/input";
 import BucketCard from "./components/bucket-card";
 import CreateBucketDialog from "./components/create-bucket-dialog";
 import { useMemo, useState } from "react";
+import { useAuth } from "@/hooks/useAuth";
 
 const BucketsPage = () => {
   const { data } = useBuckets();
   const [search, setSearch] = useState("");
+  const auth = useAuth();
 
   const items = useMemo(() => {
     let buckets =
@@ -43,11 +45,12 @@ const BucketsPage = () => {
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <Input
             placeholder="Search..."
+            className="sm:max-w-xs"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
           <div className="flex-1" />
-          <CreateBucketDialog />
+          {auth.isManager ? <CreateBucketDialog /> : null}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8 items-stretch mt-4 md:mt-8">

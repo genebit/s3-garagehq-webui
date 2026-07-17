@@ -1,6 +1,6 @@
 import Page from "@/context/page-context";
 import { useClusterStatus, useNodeInfo } from "./hooks";
-import { Card } from "react-daisyui";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import NodesList from "./components/nodes-list";
 import { useMemo } from "react";
 
@@ -26,26 +26,26 @@ const ClusterPage = () => {
       <Page title="Cluster" />
 
       <Card>
-        <Card.Body className="gap-1">
-          <Card.Title className="mb-2">Details</Card.Title>
-
-          {/* <DetailItem title="Node ID" value={node?.nodeId} /> */}
+        <CardHeader>
+          <CardTitle>Details</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-1">
           <DetailItem title="Garage Version" value={node?.garageVersion} />
-          {/* <DetailItem title="Rust version" value={data?.rustVersion} /> */}
           <DetailItem title="DB engine" value={node?.dbEngine} />
           <DetailItem
             title="Layout version"
             value={data?.layoutVersion || data?.layout?.version || "-"}
           />
-        </Card.Body>
+        </CardContent>
       </Card>
 
       <Card className="mt-4 md:mt-8">
-        <Card.Body>
-          <Card.Title>Nodes</Card.Title>
-
+        <CardHeader>
+          <CardTitle>Nodes</CardTitle>
+        </CardHeader>
+        <CardContent>
           <NodesList nodes={nodes} />
-        </Card.Body>
+        </CardContent>
       </Card>
     </div>
   );
@@ -58,9 +58,9 @@ type DetailItemProps = {
 
 const DetailItem = ({ title, value }: DetailItemProps) => {
   return (
-    <div className="flex flex-row items-start max-w-xl gap-3 text-left text-sm">
-      <div className="shrink-0 w-1/3 max-w-[200px]">
-        <p className="text-base-content/80">{title}</p>
+    <div className="flex max-w-xl flex-row items-start gap-3 text-left text-sm">
+      <div className="w-1/3 max-w-[200px] shrink-0">
+        <p className="text-muted-foreground">{title}</p>
       </div>
       <div className="flex-1 truncate">
         <p className="truncate">{value}</p>

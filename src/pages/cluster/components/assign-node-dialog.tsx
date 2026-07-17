@@ -1,4 +1,13 @@
-import { Button, Checkbox, Input, Modal, Select } from "react-daisyui";
+import Button from "@/components/ui/button";
+import Input from "@/components/ui/input";
+import Checkbox from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useAssignNode, useClusterLayout, useClusterStatus } from "../hooks";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -115,17 +124,20 @@ const AssignNodeDialog = () => {
   });
 
   return (
-    <Modal open={isOpen}>
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          onSubmit(e);
-        }}
-      >
-        <Modal.Header>Assign Node</Modal.Header>
-        <Modal.Body>
-          <div className="form-control">
-            <label className="label label-text">Node ID:</label>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(open) => !open && assignNodeDialog.close()}
+    >
+      <DialogContent>
+        <form onSubmit={onSubmit} className="grid gap-4">
+          <DialogHeader>
+            <DialogTitle>Assign Node</DialogTitle>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium leading-none">
+              Node ID:
+            </label>
             <Input
               placeholder="..."
               className="w-full"
@@ -138,7 +150,6 @@ const AssignNodeDialog = () => {
             form={form}
             name="zone"
             title="Zone"
-            className="mt-2"
             render={(field) => (
               <Select2
                 creatable
@@ -154,27 +165,25 @@ const AssignNodeDialog = () => {
             )}
           />
 
-          <div className="flex items-center justify-between mt-2">
-            <label className="label label-text flex-1 truncate">Capacity</label>
-            <label className="label label-text cursor-pointer">
-              <Controller
-                control={form.control}
-                name="isGateway"
-                render={({ field }) => (
-                  <Checkbox
-                    {...(field as any)}
-                    checked={field.value}
-                    onChange={(e) => field.onChange(e.target.checked)}
-                    className="mr-2"
-                  />
-                )}
-              />
-              Gateway
+          <div className="flex items-center justify-between">
+            <label className="flex-1 truncate text-sm font-medium">
+              Capacity
             </label>
+            <Controller
+              control={form.control}
+              name="isGateway"
+              render={({ field }) => (
+                <Checkbox
+                  label="Gateway"
+                  checked={field.value}
+                  onChange={(e) => field.onChange(e.target.checked)}
+                />
+              )}
+            />
           </div>
 
           {!isGateway && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
               <FormControl
                 form={form}
                 name="capacity"
@@ -184,15 +193,21 @@ const AssignNodeDialog = () => {
                 form={form}
                 name="capacityUnit"
                 render={(field) => (
-                  <Select {...(field as any)}>
-                    <option value="">Select Unit</option>
-
-                    {capacityUnits.map((unit) => (
-                      <option key={unit} value={unit}>
-                        {unit}
-                      </option>
-                    ))}
-                  </Select>
+                  <Select2
+                    {...field}
+                    value={
+                      field.value
+                        ? { label: field.value, value: field.value }
+                        : null
+                    }
+                    options={capacityUnits.map((unit) => ({
+                      label: unit,
+                      value: unit,
+                    }))}
+                    onChange={({ value }: any) => field.onChange(value)}
+                    isSearchable={false}
+                    placeholder="Select Unit"
+                  />
                 )}
               />
             </div>
@@ -202,7 +217,6 @@ const AssignNodeDialog = () => {
             form={form}
             name="tags"
             title="Tags"
-            className="mt-2"
             render={(field) => (
               <Select2
                 creatable
@@ -225,17 +239,26 @@ const AssignNodeDialog = () => {
               />
             )}
           />
-        </Modal.Body>
-        <Modal.Actions>
-          <Button type="button" onClick={assignNodeDialog.close}>
-            Cancel
-          </Button>
-          <Button type="submit" color="primary" disabled={assignNode.isPending}>
-            Save
-          </Button>
-        </Modal.Actions>
-      </form>
-    </Modal>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={assignNodeDialog.close}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              variant="default"
+              disabled={assignNode.isPending}
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 };
 

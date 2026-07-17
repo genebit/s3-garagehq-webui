@@ -2,12 +2,26 @@ import Button from "@/components/ui/button";
 import { useKeys } from "@/pages/keys/hooks";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus } from "lucide-react";
-import { useEffect } from "react";
-import { Checkbox, Modal, Table } from "react-daisyui";
+import { useEffect, useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import Checkbox, { CheckboxField } from "@/components/ui/checkbox";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { useFieldArray, useForm } from "react-hook-form";
 import { AllowKeysSchema, allowKeysSchema } from "../schema";
-import { useDisclosure } from "@/hooks/useDisclosure";
-import { CheckboxField } from "@/components/ui/checkbox";
 import { useAllowKey } from "../hooks";
 import { toast } from "sonner";
 import { handleError } from "@/lib/utils";
@@ -20,7 +34,7 @@ type Props = {
 
 const AllowKeyDialog = ({ currentKeys }: Props) => {
   const { bucket } = useBucketContext();
-  const { dialogRef, isOpen, onOpen, onClose } = useDisclosure();
+  const [isOpen, setOpen] = useState(false);
   const { data: keys } = useKeys();
   const form = useForm<AllowKeysSchema>({
     resolver: zodResolver(allowKeysSchema),
@@ -34,7 +48,7 @@ const AllowKeyDialog = ({ currentKeys }: Props) => {
   const allowKey = useAllowKey(bucket.id, {
     onSuccess: () => {
       form.reset();
-      onClose();
+      setOpen(false);
       toast.success("Key allowed!");
       queryClient.invalidateQueries({ queryKey: ["bucket", bucket.id] });
     },
@@ -79,99 +93,105 @@ const AllowKeyDialog = ({ currentKeys }: Props) => {
   });
 
   return (
-    <>
-      <Button icon={Plus} color="primary" onClick={onOpen}>
+    <Dialog open={isOpen} onOpenChange={setOpen}>
+      <Button variant="default" icon={Plus} onClick={() => setOpen(true)}>
         Allow Key
       </Button>
 
-      <Modal ref={dialogRef} backdrop open={isOpen} className="max-w-2xl">
-        <Modal.Header className="mb-1">Allow Key</Modal.Header>
-        <Modal.Body>
-          <p>Enter the key you want to allow access to.</p>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Allow Key</DialogTitle>
+          <DialogDescription>
+            Enter the key you want to allow access to.
+          </DialogDescription>
+        </DialogHeader>
 
-          <div className="overflow-x-auto mt-4">
-            <Table>
-              <Table.Head>
-                <label className="flex items-center gap-2 cursor-pointer">
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>
                   <Checkbox
-                    color="primary"
-                    size="sm"
+                    label="Key"
                     onChange={(e) => onToggleAll(e, "checked")}
                   />
-                  Key
-                </label>
-                <label>Local Aliases</label>
-                <label className="flex items-center gap-2 cursor-pointer">
+                </TableHead>
+                <TableHead>Local Aliases</TableHead>
+                <TableHead>
                   <Checkbox
-                    color="primary"
-                    size="sm"
+                    label="Read"
                     onChange={(e) => onToggleAll(e, "read")}
                   />
-                  Read
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
+                </TableHead>
+                <TableHead>
                   <Checkbox
-                    color="primary"
-                    size="sm"
+                    label="Write"
                     onChange={(e) => onToggleAll(e, "write")}
                   />
-                  Write
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
+                </TableHead>
+                <TableHead>
                   <Checkbox
-                    color="primary"
-                    size="sm"
+                    label="Owner"
                     onChange={(e) => onToggleAll(e, "owner")}
                   />
-                  Owner
-                </label>
-              </Table.Head>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
 
-              <Table.Body>
-                {!keyFields.length ? (
-                  <tr>
-                    <td colSpan={5} className="text-center">
-                      No keys found
-                    </td>
-                  </tr>
-                ) : null}
-                {keyFields.map((field, index) => {
-                  const curKey = bucket.keys.find(
-                    (key) => key.accessKeyId === field.keyId
-                  );
-                  return (
-                    <Table.Row key={field.id}>
+            <TableBody>
+              {!keyFields.length ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="py-8 text-center">
+                    No keys found
+                  </TableCell>
+                </TableRow>
+              ) : null}
+              {keyFields.map((field, index) => {
+                const curKey = bucket.keys.find(
+                  (key) => key.accessKeyId === field.keyId
+                );
+                return (
+                  <TableRow key={field.id}>
+                    <TableCell>
                       <CheckboxField
                         form={form}
                         name={`keys.${index}.checked`}
                         label={field.name || field.keyId?.substring(0, 8)}
                       />
-                      <span>
-                        {curKey?.bucketLocalAliases?.join(", ") || "-"}
-                      </span>
+                    </TableCell>
+                    <TableCell>
+                      {curKey?.bucketLocalAliases?.join(", ") || "-"}
+                    </TableCell>
+                    <TableCell>
                       <CheckboxField form={form} name={`keys.${index}.read`} />
+                    </TableCell>
+                    <TableCell>
                       <CheckboxField form={form} name={`keys.${index}.write`} />
+                    </TableCell>
+                    <TableCell>
                       <CheckboxField form={form} name={`keys.${index}.owner`} />
-                    </Table.Row>
-                  );
-                })}
-              </Table.Body>
-            </Table>
-          </div>
-        </Modal.Body>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
 
-        <Modal.Actions>
-          <Button onClick={onClose}>Cancel</Button>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
           <Button
-            color="primary"
+            variant="default"
             disabled={allowKey.isPending}
             onClick={onSubmit}
           >
             Submit
           </Button>
-        </Modal.Actions>
-      </Modal>
-    </>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
 

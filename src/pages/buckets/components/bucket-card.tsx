@@ -9,7 +9,7 @@ type Props = {
 
 const BucketCard = ({ data }: Props) => {
   return (
-    <div className="card card-body p-6">
+    <div className="flex flex-col gap-4 rounded-xl border bg-card p-6 text-card-foreground shadow-sm">
       <div className="grid grid-cols-2 items-start gap-4 p-2 pb-0">
         <div className="flex flex-row items-start gap-x-3 col-span-2">
           <ArchiveIcon size={28} className="shrink-0" />
@@ -38,9 +38,11 @@ const BucketCard = ({ data }: Props) => {
         </div>
       </div>
 
-      <div className="flex flex-row justify-end gap-4">
-        <Button href={`/buckets/${data.id}`}>Manage</Button>
-        <Button color="primary" href={`/buckets/${data.id}?tab=browse`}>
+      <div className="flex flex-row justify-end gap-3">
+        <Button variant="outline" href={`/buckets/${data.id}`}>
+          Manage
+        </Button>
+        <Button variant="default" href={`/buckets/${data.id}?tab=browse`}>
           Browse
         </Button>
       </div>

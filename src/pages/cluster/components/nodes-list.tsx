@@ -1,4 +1,3 @@
-import { Alert, Badge, Button, Dropdown, Input, Table } from "react-daisyui";
 import { Node } from "../types";
 import { cn, handleError, readableBytes } from "@/lib/utils";
 import {
@@ -25,6 +24,24 @@ import {
 } from "../hooks";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import Button from "@/components/ui/button";
+import Input from "@/components/ui/input";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 type NodeListProps = {
   nodes: Node[];
@@ -128,9 +145,10 @@ const NodesList = ({ nodes }: NodeListProps) => {
 
   return (
     <>
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center my-2 gap-x-4 gap-y-2">
+      <div className="my-2 flex flex-col items-stretch gap-x-4 gap-y-2 sm:flex-row sm:items-center">
         <Input
           placeholder="Search..."
+          className="sm:max-w-xs"
           value={filter.search}
           onChange={(e) => {
             setFilter((state) => ({ ...state, search: e.target.value }));
@@ -141,17 +159,18 @@ const NodesList = ({ nodes }: NodeListProps) => {
         {hasStagedChanges ? (
           <>
             <Button
+              variant="outline"
               onClick={onRevert}
               disabled={revertChanges.isPending || applyChanges.isPending}
             >
               Revert
             </Button>
             <Button
-              color="primary"
+              variant="default"
+              icon={Check}
               onClick={onApply}
               disabled={revertChanges.isPending || applyChanges.isPending}
             >
-              <Check />
               Apply
             </Button>
           </>
@@ -161,76 +180,81 @@ const NodesList = ({ nodes }: NodeListProps) => {
       </div>
 
       {hasStagedChanges && (
-        <Alert icon={<Info />}>
-          There are staged layout changes that need to be applied. Press Apply
-          to apply them, or Revert to discard them.
+        <Alert>
+          <Info />
+          <AlertDescription>
+            There are staged layout changes that need to be applied. Press
+            Apply to apply them, or Revert to discard them.
+          </AlertDescription>
         </Alert>
       )}
 
       {applyChanges.data?.message ? (
-        <Alert
-          icon={<CheckCircle />}
-          className="items-start overflow-x-auto relative text-sm"
-        >
-          <pre>{applyChanges.data.message.join("\n")}</pre>
+        <Alert className="relative overflow-x-auto">
+          <CheckCircle />
+          <AlertDescription>
+            <pre className="text-xs">{applyChanges.data.message.join("\n")}</pre>
+          </AlertDescription>
           <Button
+            variant="ghost"
+            size="icon"
             onClick={applyChanges.reset}
-            className="absolute right-2 top-2"
-            shape="circle"
-            size="sm"
+            className="absolute right-2 top-2 rounded-full"
           >
-            <X />
+            <X size={16} />
           </Button>
         </Alert>
       ) : null}
 
-      <div className="w-full overflow-x-auto overflow-y-hidden min-h-[400px]">
-        <Table size="sm" className="min-w-[800px]">
-          <Table.Head>
-            <span>#</span>
-            <span>ID</span>
-            <span>Hostname</span>
-            <span>Zone</span>
-            <span>Capacity</span>
-            <span>Status</span>
-            <span />
-          </Table.Head>
+      <div className="min-h-[400px] w-full overflow-x-auto overflow-y-hidden">
+        <Table className="min-w-[800px]">
+          <TableHeader>
+            <TableRow>
+              <TableHead>#</TableHead>
+              <TableHead>ID</TableHead>
+              <TableHead>Hostname</TableHead>
+              <TableHead>Zone</TableHead>
+              <TableHead>Capacity</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead />
+            </TableRow>
+          </TableHeader>
 
-          <Table.Body>
+          <TableBody>
             {items.map((item, idx) => (
-              <Table.Row
+              <TableRow
                 key={item.id}
                 className={cn(
-                  item.isStaged && "bg-warning/10",
-                  item.role && "remove" in item.role ? "bg-error/10" : null
+                  item.isStaged && "bg-amber-500/10",
+                  item.role && "remove" in item.role ? "bg-red-500/10" : null
                 )}
               >
-                <span>{idx + 1}</span>
-                <p className="max-w-[80px] truncate" title={item.id}>
-                  {item.id}
-                </p>
-                <>
+                <TableCell>{idx + 1}</TableCell>
+                <TableCell>
+                  <p className="max-w-[80px] truncate" title={item.id}>
+                    {item.id}
+                  </p>
+                </TableCell>
+                <TableCell>
                   <p className="font-medium">{item.hostname}</p>
                   <div className="flex flex-row items-center gap-1">
                     <Share2 size={12} />
-                    <p className="text-base-content/80 text-xs">{item.addr}</p>
+                    <p className="text-xs text-muted-foreground">{item.addr}</p>
                   </div>
-                </>
-                <>
+                </TableCell>
+                <TableCell>
                   <p>{item.role?.zone || "-"}</p>
-                  <div className="flex flex-row items-center flex-wrap gap-1">
+                  <div className="flex flex-row flex-wrap items-center gap-1">
                     {item.role?.tags?.map((tag: any) => (
-                      <Badge key={tag} color="primary">
-                        {tag}
-                      </Badge>
+                      <Badge key={tag}>{tag}</Badge>
                     ))}
                   </div>
-                </>
-                <>
+                </TableCell>
+                <TableCell>
                   <p>
                     {item.role?.capacity === null ? (
                       <>
-                        <Network className="inline mr-1" size={18} />
+                        <Network className="mr-1 inline" size={18} />
                         Gateway
                       </>
                     ) : (
@@ -242,58 +266,61 @@ const NodesList = ({ nodes }: NodeListProps) => {
                     <div className="flex flex-row items-center gap-1">
                       <Cylinder size={12} />
 
-                      <p className="text-xs text-base-content/80">
+                      <p className="text-xs text-muted-foreground">
                         {readableBytes(item.dataPartition?.available) +
                           ` (${Math.round(
                             (item.dataPartition.available /
                               item.dataPartition.total) *
-                            100
+                              100
                           )}%)`}
                       </p>
                     </div>
                   ) : null}
-                </>
+                </TableCell>
 
-                <Badge
-                  color={
-                    item.draining ? "warning" : item.isUp ? "success" : "error"
-                  }
-                >
-                  {item.draining
-                    ? "Draining"
-                    : item.isUp
-                      ? "Active"
-                      : "Inactive"}
-                </Badge>
+                <TableCell>
+                  <Badge
+                    variant={
+                      item.draining
+                        ? "warning"
+                        : item.isUp
+                          ? "success"
+                          : "error"
+                    }
+                  >
+                    {item.draining
+                      ? "Draining"
+                      : item.isUp
+                        ? "Active"
+                        : "Inactive"}
+                  </Badge>
+                </TableCell>
 
-                <Dropdown
-                  end
-                  vertical={
-                    idx > 2 && idx >= items.length - 2 ? "top" : "bottom"
-                  }
-                >
-                  <Dropdown.Toggle button={false}>
-                    <Button shape="circle" color="ghost">
-                      <EllipsisVertical />
-                    </Button>
-                  </Dropdown.Toggle>
-                  <Dropdown.Menu className="min-w-40 gap-y-1">
-                    <Dropdown.Item onClick={() => onAssign(item)}>
-                      <RouteIcon size={20} /> Assign
-                    </Dropdown.Item>
-                    {item.role != null && (
-                      <Dropdown.Item
-                        className="text-error bg-error/10"
-                        onClick={() => onUnassign(item.id)}
-                      >
-                        <Trash2 size={20} /> Remove
-                      </Dropdown.Item>
-                    )}
-                  </Dropdown.Menu>
-                </Dropdown>
-              </Table.Row>
+                <TableCell>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="rounded-full">
+                        <EllipsisVertical size={18} />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="min-w-40">
+                      <DropdownMenuItem onSelect={() => onAssign(item)}>
+                        <RouteIcon /> Assign
+                      </DropdownMenuItem>
+                      {item.role != null && (
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onSelect={() => onUnassign(item.id)}
+                        >
+                          <Trash2 /> Remove
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
             ))}
-          </Table.Body>
+          </TableBody>
         </Table>
       </div>
 

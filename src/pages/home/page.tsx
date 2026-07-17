@@ -36,10 +36,10 @@ const HomePage = () => {
           valueClassName={cn(
             "text-lg",
             health?.status === "healthy"
-              ? "text-success"
+              ? "text-emerald-500"
               : health?.status === "degraded"
-                ? "text-warning"
-                : "text-error"
+                ? "text-amber-500"
+                : "text-red-500"
           )}
         />
         <StatsCard title="Nodes" icon={HardDrive} value={health?.knownNodes} />

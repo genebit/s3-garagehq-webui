@@ -1,5 +1,14 @@
 import { useDenyKey } from "../hooks";
-import { Card, Checkbox, Table } from "react-daisyui";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import Checkbox from "@/components/ui/checkbox";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import Button from "@/components/ui/button";
 import { Trash } from "lucide-react";
 import AllowKeyDialog from "./allow-key-dialog";
@@ -38,63 +47,73 @@ const PermissionsTab = () => {
   };
 
   return (
-    <div>
-      <Card className="card-body">
-        <div className="flex flex-row items-center gap-2">
-          <Card.Title className="flex-1 truncate">Access Keys</Card.Title>
-          <AllowKeyDialog currentKeys={keys?.map((key) => key.accessKeyId)} />
-        </div>
+    <Card>
+      <CardHeader className="flex-row items-center space-y-0">
+        <CardTitle className="flex-1 truncate">Access Keys</CardTitle>
+        <AllowKeyDialog currentKeys={keys?.map((key) => key.accessKeyId)} />
+      </CardHeader>
 
+      <CardContent>
         <div className="overflow-x-auto">
-          <Table zebra size="sm">
-            <Table.Head>
-              <span>#</span>
-              <span>Key</span>
-              <span>Aliases</span>
-              <span>Read</span>
-              <span>Write</span>
-              <span>Owner</span>
-              <span />
-            </Table.Head>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>#</TableHead>
+                <TableHead>Key</TableHead>
+                <TableHead>Aliases</TableHead>
+                <TableHead>Read</TableHead>
+                <TableHead>Write</TableHead>
+                <TableHead>Owner</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
 
-            <Table.Body>
+            <TableBody>
               {keys?.map((key, idx) => (
-                <Table.Row>
-                  <span>{idx + 1}</span>
-                  <span>{key.name || key.accessKeyId?.substring(0, 8)}</span>
-                  <span>{key.bucketLocalAliases?.join(", ") || "-"}</span>
-                  <span>
+                <TableRow key={key.accessKeyId}>
+                  <TableCell>{idx + 1}</TableCell>
+                  <TableCell>
+                    {key.name || key.accessKeyId?.substring(0, 8)}
+                  </TableCell>
+                  <TableCell>
+                    {key.bucketLocalAliases?.join(", ") || "-"}
+                  </TableCell>
+                  <TableCell>
                     <Checkbox
                       checked={key.permissions?.read}
-                      color="primary"
+                      readOnly
                       className="cursor-default"
                     />
-                  </span>
-                  <span>
+                  </TableCell>
+                  <TableCell>
                     <Checkbox
                       checked={key.permissions?.write}
-                      color="primary"
+                      readOnly
                       className="cursor-default"
                     />
-                  </span>
-                  <span>
+                  </TableCell>
+                  <TableCell>
                     <Checkbox
                       checked={key.permissions?.owner}
-                      color="primary"
+                      readOnly
                       className="cursor-default"
                     />
-                  </span>
-                  <Button
-                    icon={Trash}
-                    onClick={() => onRemove(key.accessKeyId)}
-                  />
-                </Table.Row>
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      icon={Trash}
+                      onClick={() => onRemove(key.accessKeyId)}
+                    />
+                  </TableCell>
+                </TableRow>
               ))}
-            </Table.Body>
+            </TableBody>
           </Table>
         </div>
-      </Card>
-    </div>
+      </CardContent>
+    </Card>
   );
 };
 

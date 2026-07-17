@@ -13,32 +13,46 @@ import PermissionsTab from "./permissions/permissions-tab";
 import MenuButton from "./components/menu-button";
 import BrowseTab from "./browse/browse-tab";
 import { BucketContext } from "./context";
-import { Alert, Loading } from "react-daisyui";
-
-const tabs: Tab[] = [
-  {
-    name: "overview",
-    title: "Overview",
-    icon: ChartLine,
-    Component: OverviewTab,
-  },
-  {
-    name: "permissions",
-    title: "Permissions",
-    icon: LockKeyhole,
-    Component: PermissionsTab,
-  },
-  {
-    name: "browse",
-    title: "Browse",
-    icon: FolderSearch,
-    Component: BrowseTab,
-  },
-];
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Loader2 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useMemo } from "react";
 
 const ManageBucketPage = () => {
   const { id } = useParams();
   const { data, error, isLoading, refetch } = useBucket(id);
+  const auth = useAuth();
+  const canManage = !!auth.isManager;
+
+  const tabs = useMemo<Tab[]>(() => {
+    const list: Tab[] = [
+      {
+        name: "overview",
+        title: "Overview",
+        icon: ChartLine,
+        Component: OverviewTab,
+      },
+    ];
+
+    // Key/permission management is reserved for owners and admins.
+    if (canManage) {
+      list.push({
+        name: "permissions",
+        title: "Permissions",
+        icon: LockKeyhole,
+        Component: PermissionsTab,
+      });
+    }
+
+    list.push({
+      name: "browse",
+      title: "Browse",
+      icon: FolderSearch,
+      Component: BrowseTab,
+    });
+
+    return list;
+  }, [canManage]);
 
   const name = data?.globalAliases[0];
 
@@ -47,27 +61,28 @@ const ManageBucketPage = () => {
       <Page
         title={name || "Manage Bucket"}
         prev="/buckets"
-        actions={data ? <MenuButton /> : undefined}
+        actions={data && canManage ? <MenuButton /> : undefined}
       />
 
       {isLoading && (
-        <div className="h-full flex items-center justify-center">
-          <Loading size="lg" />
+        <div className="flex h-full items-center justify-center">
+          <Loader2 size={32} className="animate-spin text-muted-foreground" />
         </div>
       )}
 
       {error != null && (
-        <Alert status="error" icon={<CircleXIcon />}>
-          <span>{error.message}</span>
+        <Alert variant="destructive">
+          <CircleXIcon />
+          <AlertDescription>{error.message}</AlertDescription>
         </Alert>
       )}
 
       {data && (
         <div className="container">
           <BucketContext.Provider
-            value={{ bucket: data, refetch, bucketName: name || "" }}
+            value={{ bucket: data, refetch, bucketName: name || "", canManage }}
           >
-            <TabView tabs={tabs} className="bg-base-100 h-14 px-1.5" />
+            <TabView tabs={tabs} />
           </BucketContext.Provider>
         </div>
       )}

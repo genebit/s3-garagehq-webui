@@ -1,6 +1,11 @@
 import Button from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { EllipsisVertical, Trash } from "lucide-react";
-import { Dropdown } from "react-daisyui";
 import { useNavigate, useParams } from "react-router-dom";
 import { useRemoveBucket } from "../hooks";
 import { toast } from "sonner";
@@ -25,17 +30,22 @@ const MenuButton = () => {
   };
 
   return (
-    <Dropdown end>
-      <Dropdown.Toggle button={false}>
-        <Button icon={EllipsisVertical} color="ghost" />
-      </Dropdown.Toggle>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="rounded-full">
+          <EllipsisVertical size={18} />
+        </Button>
+      </DropdownMenuTrigger>
 
-      <Dropdown.Menu>
-        <Dropdown.Item onClick={onRemove} className="bg-error/10 text-error">
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem
+          className="text-destructive focus:text-destructive"
+          onSelect={onRemove}
+        >
           <Trash /> Remove
-        </Dropdown.Item>
-      </Dropdown.Menu>
-    </Dropdown>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 };
 

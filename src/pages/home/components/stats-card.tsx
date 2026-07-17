@@ -17,7 +17,7 @@ const StatsCard = ({
   children,
 }: Props) => {
   return (
-    <div className="bg-base-100 rounded-box p-4 md:p-6 flex flex-row items-center">
+    <div className="flex flex-row items-center rounded-xl border bg-card p-4 text-card-foreground shadow-sm md:p-6">
       <div className="shrink-0 w-[60px]">
         <Icon size={32} />
       </div>

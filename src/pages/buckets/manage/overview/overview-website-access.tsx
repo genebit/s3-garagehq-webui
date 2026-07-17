@@ -55,8 +55,8 @@ const WebsiteAccessSection = () => {
 
   return (
     <div className="mt-8">
-      <div className="flex flex-row gap-2">
-        <p className="label label-text py-0 grow-0">Website Access</p>
+      <div className="flex flex-row items-center gap-2">
+        <p className="grow-0 text-sm font-medium">Website Access</p>
         <Button
           href="https://garagehq.deuxfleurs.fr/documentation/cookbook/exposing-websites"
           target="_blank"
@@ -85,7 +85,7 @@ const WebsiteAccessSection = () => {
             />
           </div>
 
-          <div className="mt-4 alert flex flex-row flex-wrap text-sm gap-x-2 gap-y-1">
+          <div className="mt-4 flex flex-row flex-wrap gap-x-2 gap-y-1 rounded-lg border bg-muted/50 px-4 py-3 text-sm">
             <a
               href={`http://${bucketName}`}
               className="inline-flex items-center flex-row gap-2 font-medium hover:link"
