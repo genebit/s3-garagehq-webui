@@ -62,15 +62,16 @@ More in [misc/SCREENSHOTS.md](misc/SCREENSHOTS.md).
 
 The Garage Web UI is available as a single executable binary and docker image. You can install it using the command line or with Docker Compose.
 
-> **Note on this fork:** the `khairul169/garage-webui` Docker image referenced below is the
-> **upstream** project and does not include this fork's features. To run this fork, build the image
-> from source (see [Development](#development) → [Running the fork locally with Docker](#running-the-fork-locally-with-docker)),
-> or build your own binary from this repository.
+> **Note on this fork:** this section references `genebit/garage-webui`, the image published from
+> this fork. The upstream `khairul169/garage-webui` image does not include this fork's features
+> (access control, Google sign-in, audit logs, bulk object management, drag-and-drop uploads, or
+> the redesigned UI). You can also build the image yourself from source — see
+> [Development](#development) → [Running the fork locally with Docker](#running-the-fork-locally-with-docker).
 
 ### Docker CLI
 
 ```sh
-$ docker run -p 3909:3909 -v ./garage.toml:/etc/garage.toml:ro --restart unless-stopped --name garage-webui khairul169/garage-webui:latest
+$ docker run -p 3909:3909 -v ./garage.toml:/etc/garage.toml:ro --restart unless-stopped --name garage-webui genebit/garage-webui:latest
 ```
 
 ### Docker Compose
@@ -94,7 +95,7 @@ services:
       - 3903:3903
 
   webui:
-    image: khairul169/garage-webui:latest # or build from this fork, see Development
+    image: genebit/garage-webui:latest # or build from source, see Development
     container_name: garage-webui
     restart: unless-stopped
     volumes:
