@@ -3,11 +3,11 @@ import { useEffect } from "react";
 import { useStore } from "zustand";
 
 const ThemeProvider = () => {
-  const theme = useStore(appStore, (i) => i.theme);
+  const mode = useStore(appStore, (i) => i.mode);
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-  }, [theme]);
+    document.documentElement.classList.toggle("dark", mode === "dark");
+  }, [mode]);
 
   return null;
 };

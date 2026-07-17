@@ -18,28 +18,34 @@ const Select = forwardRef<any, Props>(({ creatable, ...props }, ref) => {
       classNames={{
         control: (p) =>
           cn(
-            "bg-base-100 px-4 rounded-btn border text-base-content border-base-content/20 h-12",
-            p.isMulti && "py-2 flex flex-row gap-2 items-center flex-wrap",
-            p.isMulti && p.hasValue ? "pt-1 px-2 h-auto" : null
+            "flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-sm transition-colors",
+            p.isFocused && "ring-1 ring-ring",
+            p.isMulti && "py-1.5 flex flex-row gap-2 items-center flex-wrap",
+            p.isMulti && p.hasValue ? "h-auto px-2 py-1" : null
           ),
-        input: () => "text-base-content",
+        placeholder: () => "text-muted-foreground",
+        input: () => "text-foreground",
         menuList: () =>
-          "bg-base-100 rounded-btn border border-base-content/20 p-0",
-        noOptionsMessage: () => "my-4",
+          "z-50 mt-1 overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md",
+        noOptionsMessage: () => "py-4 text-sm text-muted-foreground",
         option: (p) =>
           cn(
-            "text-base-content bg-base-100 hover:bg-base-300 px-4 py-3 !cursor-pointer",
-            p.isSelected || p.isFocused ? "bg-base-200" : null
+            "!cursor-pointer rounded-sm px-2 py-1.5 text-sm text-popover-foreground",
+            p.isSelected || p.isFocused ? "bg-accent text-accent-foreground" : null
           ),
-        singleValue: () => "text-base-content",
+        singleValue: () => "text-foreground",
         multiValue: () =>
-          "bg-base-300/80 text-base-content/80 pl-2 mt-1 mr-1 flex flex-row items-center",
+          "mr-1 mt-0.5 flex flex-row items-center rounded-md bg-secondary pl-2 text-xs text-secondary-foreground",
         multiValueRemove: () =>
-          "px-2 py-2 hover:bg-primary hover:text-primary-content",
+          "px-1.5 py-1.5 rounded-r-md hover:bg-primary hover:text-primary-foreground",
       }}
       noOptionsMessage={() =>
         creatable ? "Type something to add..." : undefined
       }
+      menuPortalTarget={
+        typeof document !== "undefined" ? document.body : undefined
+      }
+      styles={{ menuPortal: (base) => ({ ...base, zIndex: 9999 }) }}
       {...props}
     />
   );

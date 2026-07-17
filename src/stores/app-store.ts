@@ -1,15 +1,16 @@
-import { Themes } from "@/app/themes";
 import { createStore } from "zustand";
 import { persist } from "zustand/middleware";
 
+export type ThemeMode = "light" | "dark";
+
 type AppState = {
-  theme: Themes;
+  mode: ThemeMode;
 };
 
 const store = createStore(
   persist<AppState>(
     () => ({
-      theme: "pastel",
+      mode: "dark",
     }),
     {
       name: "appdata",
@@ -19,7 +20,9 @@ const store = createStore(
 
 const appStore = {
   ...store,
-  setTheme: (theme: AppState["theme"]) => store.setState({ theme }),
+  setMode: (mode: ThemeMode) => store.setState({ mode }),
+  toggleMode: () =>
+    store.setState((s) => ({ mode: s.mode === "dark" ? "light" : "dark" })),
 };
 
 export default appStore;

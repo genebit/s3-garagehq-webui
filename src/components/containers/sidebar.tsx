@@ -1,110 +1,116 @@
-import { cn, ucfirst } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import {
   ArchiveIcon,
+  Github,
   HardDrive,
   KeySquare,
   LayoutDashboard,
-  LogOut,
-  Palette,
+  ScrollText,
+  UsersRound,
 } from "lucide-react";
-import { Dropdown, Menu } from "react-daisyui";
 import { Link, useLocation } from "react-router-dom";
-import Button from "../ui/button";
-import { themes } from "@/app/themes";
-import appStore from "@/stores/app-store";
 import garageLogo from "@/assets/garage-logo.svg";
-import { useMutation } from "@tanstack/react-query";
-import api from "@/lib/api";
-import * as utils from "@/lib/utils";
-import { toast } from "sonner";
-import { useAuth } from "@/hooks/useAuth";
+import { Role, useAuth } from "@/hooks/useAuth";
 
-const pages = [
-  { icon: LayoutDashboard, title: "Dashboard", path: "/", exact: true },
-  { icon: HardDrive, title: "Cluster", path: "/cluster" },
+const managerRoles: Role[] = ["owner", "admin"];
+
+const pages: {
+  icon: typeof LayoutDashboard;
+  title: string;
+  path: string;
+  exact?: boolean;
+  roles?: Role[];
+}[] = [
+  {
+    icon: LayoutDashboard,
+    title: "Dashboard",
+    path: "/",
+    exact: true,
+    roles: managerRoles,
+  },
+  { icon: HardDrive, title: "Cluster", path: "/cluster", roles: managerRoles },
   { icon: ArchiveIcon, title: "Buckets", path: "/buckets" },
   { icon: KeySquare, title: "Keys", path: "/keys" },
+  { icon: UsersRound, title: "Users", path: "/users", roles: managerRoles },
+  { icon: ScrollText, title: "Logs", path: "/logs", roles: managerRoles },
 ];
 
 const Sidebar = () => {
   const { pathname } = useLocation();
   const auth = useAuth();
 
+  const visiblePages = pages.filter(
+    (page) => !page.roles || (auth.role && page.roles.includes(auth.role))
+  );
+
   return (
-    <aside className="bg-base-100 border-r border-base-300/30 w-[80%] md:w-[250px] flex flex-col items-stretch overflow-hidden h-full">
-      <div className="p-4">
-        <img
-          src={garageLogo}
-          alt="logo"
-          className="w-full max-w-[100px] mx-auto"
-        />
-        <p className="text-sm font-medium text-center">WebUI</p>
+    <aside className="flex h-full w-[80%] flex-col overflow-hidden border-r bg-card md:w-[250px]">
+      <div className="flex items-center gap-2 p-4">
+        <img src={garageLogo} alt="logo" className="h-9 w-9" />
+        <div className="leading-tight">
+          <p className="text-sm font-semibold">Garage</p>
+          <p className="text-xs text-muted-foreground">Web UI</p>
+        </div>
       </div>
 
-      <Menu className="gap-y-1 flex-1 overflow-y-auto">
-        {pages.map((page) => {
+      <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-2">
+        {visiblePages.map((page) => {
           const isActive = page.exact
             ? pathname === page.path
             : pathname.startsWith(page.path);
           return (
-            <Menu.Item key={page.path}>
-              <Link
-                to={page.path}
-                className={cn(
-                  "h-12 flex items-center px-6",
-                  isActive &&
-                    "bg-primary text-primary-content hover:bg-primary/60 focus:bg-primary focus:text-primary-content"
-                )}
-              >
-                <page.icon size={18} />
-                <p>{page.title}</p>
-              </Link>
-            </Menu.Item>
+            <Link
+              key={page.path}
+              to={page.path}
+              className={cn(
+                "flex h-10 items-center gap-3 rounded-md px-3 text-sm font-medium transition-colors",
+                isActive
+                  ? "bg-primary text-primary-foreground"
+                  : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+              )}
+            >
+              <page.icon size={18} />
+              <span>{page.title}</span>
+            </Link>
           );
         })}
-      </Menu>
+      </nav>
 
-      <div className="py-2 px-4 flex items-center gap-2">
-        <Dropdown vertical="top">
-          <Dropdown.Toggle button={false}>
-            <Button icon={Palette} color="ghost">
-              {!auth.isEnabled ? "Theme" : null}
-            </Button>
-          </Dropdown.Toggle>
+      {auth.user ? (
+        <div className="border-t px-4 py-3">
+          <p className="truncate text-sm font-medium">{auth.user.username}</p>
+          <p className="text-xs capitalize text-muted-foreground">
+            {auth.user.role}
+          </p>
+        </div>
+      ) : null}
 
-          <Dropdown.Menu className="max-h-[500px] overflow-y-auto">
-            {themes.map((theme) => (
-              <Dropdown.Item
-                key={theme}
-                onClick={() => appStore.setTheme(theme)}
-              >
-                {ucfirst(theme)}
-              </Dropdown.Item>
-            ))}
-          </Dropdown.Menu>
-        </Dropdown>
-
-        {auth.isEnabled ? <LogoutButton /> : null}
+      <div className="border-t p-3">
+        <a
+          href="https://github.com/khairul169/garage-webui"
+          target="_blank"
+          rel="noreferrer"
+          className="block rounded-lg border bg-muted/40 p-3 transition-colors hover:bg-muted"
+        >
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground">
+              GB
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-semibold">Gene T. Bitara</p>
+              <p className="text-[11px] text-muted-foreground">Contributor</p>
+            </div>
+            <Github size={15} className="shrink-0 text-muted-foreground" />
+          </div>
+          <p className="mt-2 text-[10px] leading-tight text-muted-foreground">
+            A fork of{" "}
+            <span className="font-medium text-foreground">
+              khairul169/garage-webui
+            </span>
+          </p>
+        </a>
       </div>
     </aside>
-  );
-};
-
-const LogoutButton = () => {
-  const logout = useMutation({
-    mutationFn: () => api.post("/auth/logout"),
-    onSuccess: () => {
-      window.location.href = utils.url("/auth/login");
-    },
-    onError: (err) => {
-      toast.error(err?.message || "Unknown error");
-    },
-  });
-
-  return (
-    <Button className="flex-1" icon={LogOut} onClick={() => logout.mutate()}>
-      Logout
-    </Button>
   );
 };
 

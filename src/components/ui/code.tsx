@@ -11,7 +11,7 @@ const Code = ({ className, children, ...props }: Props) => {
   return (
     <code
       className={cn(
-        "border border-base-content/20 px-4 py-3 rounded-lg font-mono block relative",
+        "relative block rounded-lg border bg-muted px-4 py-3 pr-12 font-mono text-sm",
         className
       )}
       {...props}
@@ -19,8 +19,9 @@ const Code = ({ className, children, ...props }: Props) => {
       {children}
       <Button
         icon={Copy}
-        className="absolute right-0 top-0"
-        color="ghost"
+        className="absolute right-1 top-1"
+        variant="ghost"
+        size="icon"
         onClick={() => copyToClipboard(children || "")}
       />
     </code>

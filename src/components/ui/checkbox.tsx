@@ -1,13 +1,9 @@
 import { cn } from "@/lib/utils";
-import React, { forwardRef } from "react";
-import { Checkbox as BaseCheckbox } from "react-daisyui";
+import React, { forwardRef, InputHTMLAttributes } from "react";
 import FormControl from "./form-control";
 import { FieldValues } from "react-hook-form";
 
-type CheckboxProps = Omit<
-  React.ComponentPropsWithoutRef<typeof BaseCheckbox>,
-  "form"
-> & {
+type CheckboxProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "form"> & {
   label?: string;
   inputClassName?: string;
 };
@@ -17,15 +13,17 @@ const Checkbox = forwardRef<HTMLInputElement, CheckboxProps>(
     return (
       <label
         className={cn(
-          "label label-text inline-flex items-center justify-start gap-2 cursor-pointer",
+          "inline-flex cursor-pointer items-center justify-start gap-2 text-sm font-medium",
           className
         )}
       >
-        <BaseCheckbox
+        <input
           ref={ref}
-          color="primary"
-          size="sm"
-          className={inputClassName}
+          type="checkbox"
+          className={cn(
+            "h-4 w-4 shrink-0 cursor-pointer rounded border-input accent-primary",
+            inputClassName
+          )}
           {...props}
         />
         {label}
@@ -53,7 +51,7 @@ export const CheckboxField = <T extends FieldValues>({
         <Checkbox
           {...props}
           {...field}
-          checked={field.value}
+          checked={field.value || false}
           onChange={(e) => field.onChange(e.target.checked)}
         />
       )}

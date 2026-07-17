@@ -1,7 +1,6 @@
 import { cn } from "@/lib/utils";
 import { LucideIcon } from "lucide-react";
 import { useMemo } from "react";
-import { Tabs } from "react-daisyui";
 import { useSearchParams } from "react-router-dom";
 
 export type Tab = {
@@ -34,30 +33,34 @@ const TabView = ({
 
   return (
     <>
-      <Tabs
-        variant="boxed"
+      <div
         className={cn(
-          "w-auto inline-flex flex-row items-stretch overflow-x-auto",
+          "inline-flex h-10 items-center justify-center gap-1 overflow-x-auto rounded-lg bg-muted p-1 text-muted-foreground",
           className
         )}
       >
         {tabs.map(({ icon: Icon, ...tab }) => (
-          <Tabs.Tab
+          <button
             key={tab.name}
-            active={curTab === tab.name}
-            className="flex flex-row items-center gap-x-2 h-auto shrink-0"
+            type="button"
             onClick={() => {
               setSearchParams((params) => {
                 params.set(name, tab.name);
                 return params;
               });
             }}
+            className={cn(
+              "inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-all",
+              curTab === tab.name
+                ? "bg-background text-foreground shadow-sm"
+                : "hover:text-foreground"
+            )}
           >
-            {Icon ? <Icon size={20} /> : null}
+            {Icon ? <Icon size={16} /> : null}
             <span>{tab.title || tab.name}</span>
-          </Tabs.Tab>
+          </button>
         ))}
-      </Tabs>
+      </div>
 
       <div className={cn("mt-4", contentClassName)}>{content}</div>
     </>

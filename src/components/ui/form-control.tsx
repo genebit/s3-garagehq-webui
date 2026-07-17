@@ -39,15 +39,17 @@ const FormControl = <T extends FieldValues>({
       control={form.control}
       name={name}
       render={({ field, fieldState, formState }) => (
-        <div className={cn("form-control", className)}>
-          {title ? <label className="label label-text">{title}</label> : null}
+        <div className={cn("flex flex-col gap-1.5", className)}>
+          {title ? (
+            <label className="text-sm font-medium leading-none">{title}</label>
+          ) : null}
 
           {render(field, { fieldState, formState })}
 
           {fieldState.error ? (
-            <label className="label label-text text-error">
+            <p className="text-xs text-destructive">
               {fieldState.error.message}
-            </label>
+            </p>
           ) : null}
         </div>
       )}

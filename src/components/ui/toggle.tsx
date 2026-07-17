@@ -1,18 +1,27 @@
-import React, { forwardRef } from "react";
-import { Toggle as BaseToggle } from "react-daisyui";
+import { cn } from "@/lib/utils";
+import React, { forwardRef, InputHTMLAttributes } from "react";
 import FormControl from "./form-control";
 import { FieldValues } from "react-hook-form";
 
-type ToggleProps = Omit<
-  React.ComponentPropsWithoutRef<typeof BaseToggle>,
-  "form"
-> & { label?: string };
+type ToggleProps = Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "form"> & {
+  label?: string;
+};
 
+// A shadcn-style switch built on a native checkbox for form compatibility.
 const Toggle = forwardRef<HTMLInputElement, ToggleProps>(
-  ({ label, ...props }, ref) => {
+  ({ label, className, ...props }, ref) => {
     return (
-      <label className="inline-flex justify-start label label-text gap-2 cursor-pointer">
-        <BaseToggle ref={ref} {...props} />
+      <label
+        className={cn(
+          "inline-flex cursor-pointer items-center justify-start gap-2 py-1 text-sm font-medium",
+          className
+        )}
+      >
+        <span className="relative inline-flex">
+          <input ref={ref} type="checkbox" className="peer sr-only" {...props} />
+          <span className="h-5 w-9 rounded-full bg-input transition-colors peer-checked:bg-primary" />
+          <span className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-background shadow transition-transform peer-checked:translate-x-4" />
+        </span>
         {label}
       </label>
     );
@@ -46,7 +55,6 @@ export const ToggleField = <T extends FieldValues>({
           {...props}
           {...field}
           className={inputClassName}
-          color={field.value ? "primary" : undefined}
           checked={field.value || false}
           onChange={(e) => field.onChange(e.target.checked)}
         />

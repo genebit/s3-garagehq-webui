@@ -25,25 +25,25 @@ const ObjectListNavigator = ({
   };
 
   return (
-    <div className="flex flex-row flex-wrap items-center p-2 gap-y-2">
-      <div className="order-1 flex flex-row items-center">
+    <div className="flex flex-row flex-wrap items-center gap-y-2 border-b p-2">
+      <div className="order-1 flex flex-row items-center gap-1">
         <Button
           icon={ChevronLeft}
-          color="ghost"
+          variant="ghost"
+          size="icon"
           disabled={curPrefix < 0}
           onClick={onGoBack}
-          className="col-span-2"
         />
         <Button
           icon={ChevronRight}
-          color="ghost"
+          variant="ghost"
+          size="icon"
           disabled={curPrefix >= prefixHistory.length - 1}
           onClick={onGoForward}
-          className="col-span-2"
         />
       </div>
 
-      <div className="order-3 md:order-2 flex flex-row w-full overflow-x-auto items-center bg-base-200 h-10 flex-1 shrink-0 min-w-[80%] md:min-w-0 rounded-lg mx-2 px-2">
+      <div className="order-3 mx-2 flex h-9 w-full min-w-[80%] flex-1 shrink-0 flex-row items-center gap-0.5 overflow-x-auto rounded-md border bg-muted/50 px-1.5 md:order-2 md:min-w-0">
         <HistoryItem
           icon={Home}
           isActive={curPrefix === -1}
@@ -52,7 +52,10 @@ const ObjectListNavigator = ({
 
         {prefixHistory.map((prefix, i) => (
           <Fragment key={prefix}>
-            <ChevronRight className="shrink-0" size={18} />
+            <ChevronRight
+              className="shrink-0 text-muted-foreground"
+              size={14}
+            />
             <HistoryItem
               title={prefix
                 .substring(0, prefix.lastIndexOf("/"))
@@ -65,7 +68,7 @@ const ObjectListNavigator = ({
         ))}
       </div>
 
-      <div className="order-2 flex flex-row items-center flex-1 md:order-3 md:flex-initial justify-end">
+      <div className="order-2 flex flex-1 flex-row items-center justify-end gap-1 md:order-3 md:flex-initial">
         {actions}
       </div>
     </div>
@@ -90,21 +93,19 @@ const HistoryItem = ({
   }
 
   return (
-    <a
-      href="#"
-      onClick={(e) => {
-        e.preventDefault();
-        onClick();
-      }}
+    <button
+      type="button"
+      onClick={onClick}
       className={cn(
-        "px-2 rounded-md shrink-0 max-w-[150px] truncate",
-        isActive && "bg-neutral",
-        Icon ? "py-1" : null
+        "inline-flex h-7 max-w-[150px] shrink-0 items-center truncate rounded px-2 text-sm transition-colors hover:text-foreground",
+        isActive
+          ? "border bg-background font-medium text-foreground shadow-sm"
+          : "text-muted-foreground"
       )}
     >
-      {Icon ? <Icon size={18} /> : null}
+      {Icon ? <Icon size={15} /> : null}
       {title}
-    </a>
+    </button>
   );
 };
 
