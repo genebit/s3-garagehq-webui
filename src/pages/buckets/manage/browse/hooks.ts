@@ -50,3 +50,34 @@ export const useDeleteObject = (
     ...options,
   });
 };
+
+export const useDeleteObjects = (
+  bucket: string,
+  options?: UseMutationOptions<any, Error, string[]>
+) => {
+  return useMutation({
+    mutationFn: (keys) =>
+      Promise.all(
+        keys.map((key) =>
+          api.delete(`/browse/${bucket}/${key}`, {
+            params: { recursive: key.endsWith("/") },
+          })
+        )
+      ),
+    ...options,
+  });
+};
+
+export const useMoveObjects = (
+  bucket: string,
+  options?: UseMutationOptions<
+    { moved: number },
+    Error,
+    { items: string[]; destination: string }
+  >
+) => {
+  return useMutation({
+    mutationFn: (body) => api.post(`/browse/${bucket}`, { body }),
+    ...options,
+  });
+};

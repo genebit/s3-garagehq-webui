@@ -1,6 +1,11 @@
-import { Dropdown } from "react-daisyui";
 import { Object } from "./types";
 import Button from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { DownloadIcon, EllipsisVertical, Share2, Trash } from "lucide-react";
 import { useDeleteObject } from "./hooks";
 import { useBucketContext } from "../context";
@@ -16,7 +21,7 @@ type Props = {
   end?: boolean;
 };
 
-const ObjectActions = ({ prefix = "", object, end }: Props) => {
+const ObjectActions = ({ prefix = "", object }: Props) => {
   const { bucketName } = useBucketContext();
   const queryClient = useQueryClient();
   const isDirectory = object.objectKey.endsWith("/");
@@ -49,33 +54,38 @@ const ObjectActions = ({ prefix = "", object, end }: Props) => {
   };
 
   return (
-    <td className="!p-0 w-auto">
-      <span className="w-full flex flex-row justify-end pr-2">
+    <td className="w-auto !p-0">
+      <span className="flex w-full flex-row justify-end gap-1 pr-2">
         {!isDirectory && (
-          <Button icon={DownloadIcon} color="ghost" onClick={onDownload} />
+          <Button
+            icon={DownloadIcon}
+            variant="ghost"
+            size="icon"
+            onClick={onDownload}
+          />
         )}
 
-        <Dropdown end vertical={end ? "top" : "bottom"}>
-          <Dropdown.Toggle button={false}>
-            <Button icon={EllipsisVertical} color="ghost" />
-          </Dropdown.Toggle>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button icon={EllipsisVertical} variant="ghost" size="icon" />
+          </DropdownMenuTrigger>
 
-          <Dropdown.Menu className="gap-y-1">
-            <Dropdown.Item
-              onClick={() =>
-                shareDialog.open({ key: object.objectKey, prefix })
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem
+              onSelect={() =>
+                shareDialog.open({ keys: [prefix + object.objectKey] })
               }
             >
               <Share2 /> Share
-            </Dropdown.Item>
-            <Dropdown.Item
-              className="text-error bg-error/10"
-              onClick={onDelete}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              className="text-destructive focus:text-destructive"
+              onSelect={onDelete}
             >
               <Trash /> Delete
-            </Dropdown.Item>
-          </Dropdown.Menu>
-        </Dropdown>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </span>
     </td>
   );
