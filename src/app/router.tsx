@@ -5,11 +5,14 @@ import MainLayout from "@/components/layouts/main-layout";
 import { BASE_PATH } from "@/lib/consts";
 
 const LoginPage = lazy(() => import("@/pages/auth/login"));
+const RegisterPage = lazy(() => import("@/pages/auth/register"));
 const ClusterPage = lazy(() => import("@/pages/cluster/page"));
 const HomePage = lazy(() => import("@/pages/home/page"));
 const BucketsPage = lazy(() => import("@/pages/buckets/page"));
 const ManageBucketPage = lazy(() => import("@/pages/buckets/manage/page"));
 const KeysPage = lazy(() => import("@/pages/keys/page"));
+const UsersPage = lazy(() => import("@/pages/users/page"));
+const LogsPage = lazy(() => import("@/pages/logs/page"));
 
 const router = createBrowserRouter(
   [
@@ -20,6 +23,10 @@ const router = createBrowserRouter(
         {
           path: "login",
           Component: LoginPage,
+        },
+        {
+          path: "register",
+          Component: RegisterPage,
         },
       ],
     },
@@ -45,6 +52,14 @@ const router = createBrowserRouter(
         {
           path: "keys",
           Component: KeysPage,
+        },
+        {
+          path: "users",
+          Component: UsersPage,
+        },
+        {
+          path: "logs",
+          Component: LogsPage,
         },
       ],
     },
