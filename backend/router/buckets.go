@@ -50,5 +50,16 @@ func (b *Buckets) GetAll(w http.ResponseWriter, r *http.Request) {
 		res = append(res, <-ch)
 	}
 
+	// Developers only see the buckets assigned to them.
+	if user, ok := utils.GetCurrentUser(r); ok && user.Role == schema.RoleDeveloper {
+		filtered := make([]schema.Bucket, 0, len(res))
+		for _, bucket := range res {
+			if user.HasBucket(bucket.ID) {
+				filtered = append(filtered, bucket)
+			}
+		}
+		res = filtered
+	}
+
 	utils.ResponseSuccess(w, res)
 }
