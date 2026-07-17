@@ -9,13 +9,17 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.17.28
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.59.0
 	github.com/aws/smithy-go v1.20.4
+	github.com/coreos/go-oidc/v3 v3.11.0
 	github.com/joho/godotenv v1.5.1
 	github.com/nfnt/resize v0.0.0-20180221191011-83c6a9932646
 	github.com/pelletier/go-toml/v2 v2.2.2
+	golang.org/x/oauth2 v0.23.0
 )
 
+require github.com/go-jose/go-jose/v4 v4.0.2 // indirect
+
 require (
-	github.com/alexedwards/scs/v2 v2.8.0 // indirect
+	github.com/alexedwards/scs/v2 v2.8.0
 	github.com/aws/aws-sdk-go-v2/aws/protocol/eventstream v1.6.4 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/configsources v1.3.16 // indirect
 	github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 v2.6.16 // indirect
