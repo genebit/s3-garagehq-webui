@@ -3,6 +3,7 @@
   "private": true,
   "version": "1.1.0",
   "type": "module",
+  "packageManager": "pnpm@9.15.9",
   "scripts": {
     "dev:client": "vite",
     "build": "tsc -b && vite build",

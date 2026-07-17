@@ -1,7 +1,7 @@
-FROM node:20-slim AS frontend
+FROM node:22-slim AS frontend
 WORKDIR /app
 
-RUN npm install -g corepack@latest && corepack use pnpm@latest
+RUN npm install -g corepack@latest && corepack enable
 
 COPY package.json pnpm-lock.yaml ./
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
