@@ -1,6 +1,6 @@
 # Garage Web UI
 
-[![image](misc/img/garage-webui.png)](misc/img/garage-webui.png)
+[![image](misc/img/login-dashboard.png)](misc/img/login-dashboard.png)
 
 A simple admin web UI for [Garage](https://garagehq.deuxfleurs.fr/), a self-hosted, S3-compatible, distributed object storage service.
 
@@ -47,6 +47,16 @@ A simple admin web UI for [Garage](https://garagehq.deuxfleurs.fr/), a self-host
 
 - Rebuilt on [shadcn/ui](https://ui.shadcn.com/) + Radix primitives (previously DaisyUI)
 - Simplified to **light/dark mode** only (previously a multi-theme picker)
+
+## Screenshots
+
+More in [misc/SCREENSHOTS.md](misc/SCREENSHOTS.md).
+
+|                                                                                    |                                                                                  |
+| ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
+| [![Login and dashboard](misc/img/login-dashboard.png)](misc/img/login-dashboard.png) <br> Login (password + Google sign-in) and the cluster health dashboard, in light and dark mode | [![Cluster and access keys](misc/img/clusters-keys.png)](misc/img/clusters-keys.png) <br> Cluster node details and access key management |
+| [![Bucket and object management](misc/img/object-mgt.png)](misc/img/object-mgt.png) <br> Buckets, multi-select bulk actions, and the background upload progress panel | [![User management](misc/img/user-mgt.png)](misc/img/user-mgt.png) <br> Managing users, roles, and Google-linked accounts |
+| [![Audit logs](misc/img/logs.png)](misc/img/logs.png) <br> Searchable, filterable audit log with expandable request details | |
 
 ## Installation
 
