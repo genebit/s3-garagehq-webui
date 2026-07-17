@@ -9,6 +9,7 @@ import (
 	"khairul169/garage-webui/schema"
 	"khairul169/garage-webui/utils"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -183,6 +184,11 @@ func (b *Browse) PutObject(w http.ResponseWriter, r *http.Request) {
 	if file != nil {
 		defer file.Close()
 	}
+	// Large uploads spill to a temp file on disk; Go does not delete it
+	// automatically, so clean it up once the request is done either way.
+	if r.MultipartForm != nil {
+		defer r.MultipartForm.RemoveAll()
+	}
 
 	client, err := getS3Client(bucket)
 	if err != nil {
@@ -209,6 +215,21 @@ func (b *Browse) PutObject(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		utils.ResponseError(w, fmt.Errorf("cannot put object: %w", err))
 		return
+	}
+
+	if isDirectory {
+		utils.Audit(r, "INFO", fmt.Sprintf("User %s created folder %q in bucket %q", utils.AuditUser(r), key, bucket), map[string]interface{}{
+			"event":  "object_create_folder",
+			"bucket": bucket,
+			"key":    key,
+		})
+	} else {
+		utils.Audit(r, "INFO", fmt.Sprintf("User %s uploaded %q to bucket %q", utils.AuditUser(r), key, bucket), map[string]interface{}{
+			"event":  "object_upload",
+			"bucket": bucket,
+			"key":    key,
+			"size":   size,
+		})
 	}
 
 	utils.ResponseSuccess(w, result)
@@ -266,6 +287,13 @@ func (b *Browse) DeleteObject(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		utils.Audit(r, "INFO", fmt.Sprintf("User %s deleted folder %q (%d object(s)) from bucket %q", utils.AuditUser(r), key, len(keys), bucket), map[string]interface{}{
+			"event":  "object_delete_folder",
+			"bucket": bucket,
+			"key":    key,
+			"count":  len(keys),
+		})
+
 		utils.ResponseSuccess(w, res)
 		return
 	}
@@ -281,7 +309,155 @@ func (b *Browse) DeleteObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	utils.Audit(r, "INFO", fmt.Sprintf("User %s deleted %q from bucket %q", utils.AuditUser(r), key, bucket), map[string]interface{}{
+		"event":  "object_delete",
+		"bucket": bucket,
+		"key":    key,
+	})
+
 	utils.ResponseSuccess(w, res)
+}
+
+// MoveObjects moves files and folders to another (possibly nested) prefix in
+// the same bucket. S3 has no native move, so this copies then deletes.
+func (b *Browse) MoveObjects(w http.ResponseWriter, r *http.Request) {
+	bucket := r.PathValue("bucket")
+
+	var body struct {
+		Items       []string `json:"items"`
+		Destination string   `json:"destination"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		utils.ResponseError(w, err)
+		return
+	}
+
+	dest := strings.TrimPrefix(body.Destination, "/")
+	if dest != "" && !strings.HasSuffix(dest, "/") {
+		dest += "/"
+	}
+	if len(body.Items) == 0 {
+		utils.ResponseErrorStatus(w, errors.New("no items to move"), http.StatusBadRequest)
+		return
+	}
+
+	client, err := getS3Client(bucket)
+	if err != nil {
+		utils.ResponseError(w, err)
+		return
+	}
+
+	ctx := context.Background()
+	moved := 0
+
+	for _, item := range body.Items {
+		if item == "" {
+			continue
+		}
+
+		if strings.HasSuffix(item, "/") {
+			// Prevent moving a folder into itself or its own subtree.
+			if strings.HasPrefix(dest, item) {
+				utils.ResponseErrorStatus(w, fmt.Errorf("cannot move folder %q into itself", item), http.StatusBadRequest)
+				return
+			}
+
+			folderName := lastSegment(strings.TrimSuffix(item, "/")) + "/"
+			n, err := moveObjectsWithPrefix(ctx, client, bucket, item, dest+folderName)
+			if err != nil {
+				utils.ResponseError(w, fmt.Errorf("cannot move folder %q: %w", item, err))
+				return
+			}
+			moved += n
+			continue
+		}
+
+		newKey := dest + lastSegment(item)
+		if newKey == item {
+			continue
+		}
+		if err := moveSingleObject(ctx, client, bucket, item, newKey); err != nil {
+			utils.ResponseError(w, fmt.Errorf("cannot move %q: %w", item, err))
+			return
+		}
+		moved++
+	}
+
+	utils.Audit(r, "INFO", fmt.Sprintf("User %s moved %d item(s) in bucket %q to %q", utils.AuditUser(r), moved, bucket, destinationLabel(dest)), map[string]interface{}{
+		"event":       "object_move",
+		"bucket":      bucket,
+		"items":       body.Items,
+		"destination": dest,
+		"moved":       moved,
+	})
+
+	utils.ResponseSuccess(w, map[string]int{"moved": moved})
+}
+
+func destinationLabel(dest string) string {
+	if dest == "" {
+		return "/ (root)"
+	}
+	return "/" + dest
+}
+
+func lastSegment(key string) string {
+	if idx := strings.LastIndex(key, "/"); idx >= 0 {
+		return key[idx+1:]
+	}
+	return key
+}
+
+func moveSingleObject(ctx context.Context, client *s3.Client, bucket, key, newKey string) error {
+	_, err := client.CopyObject(ctx, &s3.CopyObjectInput{
+		Bucket:     aws.String(bucket),
+		CopySource: aws.String(url.PathEscape(bucket + "/" + key)),
+		Key:        aws.String(newKey),
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	})
+	return err
+}
+
+func moveObjectsWithPrefix(ctx context.Context, client *s3.Client, bucket, prefix, destPrefix string) (int, error) {
+	moved := 0
+	var continuationToken *string
+
+	for {
+		list, err := client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+			Bucket:            aws.String(bucket),
+			Prefix:            aws.String(prefix),
+			ContinuationToken: continuationToken,
+		})
+		if err != nil {
+			return moved, err
+		}
+
+		for _, object := range list.Contents {
+			key := *object.Key
+			newKey := destPrefix + strings.TrimPrefix(key, prefix)
+			if newKey == key {
+				continue
+			}
+			if err := moveSingleObject(ctx, client, bucket, key, newKey); err != nil {
+				return moved, err
+			}
+			moved++
+		}
+
+		if list.IsTruncated == nil || !*list.IsTruncated {
+			break
+		}
+		continuationToken = list.NextContinuationToken
+	}
+
+	return moved, nil
 }
 
 func getBucketCredentials(bucket string) (aws.CredentialsProvider, error) {
@@ -317,6 +493,13 @@ func getBucketCredentials(bucket string) (aws.CredentialsProvider, error) {
 			return nil, err
 		}
 		break
+	}
+
+	// Without a granted read+write key there is nothing to build credentials
+	// from; returning an error here (instead of caching an empty credential)
+	// lets the bucket start working immediately once a key is granted.
+	if key.AccessKeyID == "" {
+		return nil, errors.New("no key with read & write access is granted to this bucket")
 	}
 
 	credential := credentials.NewStaticCredentialsProvider(key.AccessKeyID, key.SecretAccessKey, "")
