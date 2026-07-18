@@ -8,19 +8,36 @@ import {
 } from "react";
 import { cn } from "@/lib/utils";
 
-const Dialog = DialogPrimitive.Root;
+// Defaults to non-modal: a modal Radix Dialog sets `document.body.style
+// .pointerEvents = "none"` while open and only re-enables it on the
+// dialog's own DOM subtree. Our react-select menus portal to
+// `document.body` as a sibling of the dialog content, outside that
+// subtree, so under a modal dialog they become entirely unclickable.
+// `onInteractOutside` below still prevents outside clicks (e.g. on a
+// portaled select menu) from dismissing the dialog.
+const Dialog = ({
+  modal = false,
+  ...props
+}: ComponentPropsWithoutRef<typeof DialogPrimitive.Root>) => (
+  <DialogPrimitive.Root modal={modal} {...props} />
+);
 const DialogTrigger = DialogPrimitive.Trigger;
 const DialogPortal = DialogPrimitive.Portal;
 const DialogClose = DialogPrimitive.Close;
 
+// Radix's own Overlay primitive renders nothing when the dialog is
+// non-modal (see the `modal={false}` default on Dialog above), so this is a
+// plain div instead — it always renders the backdrop regardless of modal
+// state. It only loses the built-in exit-animation Radix's Presence would
+// give it; the dialog content itself still animates in/out normally.
 const DialogOverlay = forwardRef<
-  ElementRef<typeof DialogPrimitive.Overlay>,
-  ComponentPropsWithoutRef<typeof DialogPrimitive.Overlay>
+  HTMLDivElement,
+  ComponentPropsWithoutRef<"div">
 >(({ className, ...props }, ref) => (
-  <DialogPrimitive.Overlay
+  <div
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-black/60 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
+      "fixed inset-0 z-50 animate-in bg-black/60 fade-in-0",
       className
     )}
     {...props}
