@@ -17,20 +17,20 @@ const StatsCard = ({
   children,
 }: Props) => {
   return (
-    <div className="flex flex-row items-center rounded-xl border bg-card p-4 text-card-foreground shadow-sm md:p-6">
-      <div className="shrink-0 w-[60px]">
-        <Icon size={32} />
+    <div className="flex flex-row items-center gap-3 rounded-xl border bg-card p-4 text-card-foreground shadow-sm">
+      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        <Icon size={20} />
       </div>
 
       <div className="flex-1 truncate">
         {children != null ? (
           children
         ) : (
-          <p className={cn("flex-1 text-3xl font-bold", valueClassName)}>
+          <p className={cn("truncate text-2xl font-semibold", valueClassName)}>
             {typeof value === "undefined" ? "..." : value}
           </p>
         )}
-        <p className="text-sm mt-0.5 truncate">{title}</p>
+        <p className="truncate text-sm text-muted-foreground">{title}</p>
       </div>
     </div>
   );
