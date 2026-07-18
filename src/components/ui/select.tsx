@@ -16,6 +16,9 @@ const Select = forwardRef<any, Props>(({ creatable, ...props }, ref) => {
       ref={ref}
       unstyled
       classNames={{
+        // Marks the portaled menu so ancestor Radix layers (e.g. Dialog) can
+        // recognize clicks on it as "inside" and not dismiss on selection.
+        menuPortal: () => "select-menu-portal",
         control: (p) =>
           cn(
             "flex h-9 w-full rounded-md border border-input bg-transparent px-3 text-sm text-foreground shadow-sm transition-colors",
