@@ -26,7 +26,6 @@ const pages: {
     title: "Dashboard",
     path: "/",
     exact: true,
-    roles: managerRoles,
   },
   { icon: HardDrive, title: "Cluster", path: "/cluster", roles: managerRoles },
   { icon: ArchiveIcon, title: "Buckets", path: "/buckets" },

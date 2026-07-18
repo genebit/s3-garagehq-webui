@@ -35,15 +35,16 @@ const MainLayout = () => {
     return <Navigate to="/auth/login" />;
   }
 
-  // Developers may only reach the buckets area and their keys; send them to
-  // buckets from anywhere else.
+  // Developers may only reach their dashboard, the buckets area, and their
+  // keys; send them to the dashboard from anywhere else.
   if (auth.isDeveloper) {
     const allowed =
+      pathname === "/" ||
       pathname === "/buckets" ||
       pathname.startsWith("/buckets/") ||
       pathname === "/keys";
     if (!allowed) {
-      return <Navigate to="/buckets" replace />;
+      return <Navigate to="/" replace />;
     }
   }
 

@@ -6,10 +6,11 @@ import {
 } from "@tanstack/react-query";
 import { User } from "./types";
 
-export const useUsers = () => {
+export const useUsers = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: ["users"],
     queryFn: () => api.get<User[]>("/users"),
+    enabled: options?.enabled,
   });
 };
 
