@@ -37,7 +37,7 @@ const HomePage = () => {
   }, [buckets]);
 
   return (
-    <div className="container">
+    <div>
       <Page title="Dashboard" />
 
       {/* Primary KPIs */}
