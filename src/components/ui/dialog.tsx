@@ -42,10 +42,17 @@ const DialogContent = forwardRef<
       // A react-select menu portals to document.body, outside this content's
       // DOM subtree. Without this, clicking an option registers as an
       // "outside" interaction and Radix dismisses the dialog/select before
-      // the click completes.
+      // the click completes. Radix's outside-interaction events are
+      // CustomEvents — `event.target` is the dispatch target (not the actual
+      // click), so the real element is at `event.detail.originalEvent.target`.
       onInteractOutside={(e) => {
-        const target = e.target as HTMLElement | null;
-        if (target?.closest(".select-menu-portal")) {
+        const detail = (e as unknown as CustomEvent<{ originalEvent?: Event }>)
+          .detail;
+        const originalTarget = detail?.originalEvent?.target as
+          | HTMLElement
+          | null
+          | undefined;
+        if (originalTarget?.closest(".select-menu-portal")) {
           e.preventDefault();
           return;
         }
