@@ -115,6 +115,7 @@ const BrowseTab = () => {
         />
 
         <ObjectList
+          key={prefix}
           prefix={prefix}
           onPrefixChange={gotoPrefix}
           selected={selected}

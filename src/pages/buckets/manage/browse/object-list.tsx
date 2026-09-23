@@ -15,6 +15,9 @@ import { useBucketContext } from "../context";
 import ObjectActions from "./object-actions";
 import GotoTopButton from "@/components/ui/goto-top-btn";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import Checkbox from "@/components/ui/checkbox";
+import Pagination from "@/components/ui/pagination";
+import { useEffect, useState } from "react";
 import {
   Table,
   TableBody,
@@ -22,6 +25,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+
+const PAGE_SIZE = 50;
 
 type Props = {
   prefix?: string;
@@ -37,10 +42,34 @@ const ObjectList = ({
   onSelectedChange,
 }: Props) => {
   const { bucketName } = useBucketContext();
+  // S3 listing is cursor-based: cursors[i] is the continuation token that
+  // loads page i + 2, recorded as the user pages forward so Prev works.
+  const [page, setPage] = useState(1);
+  const [cursors, setCursors] = useState<string[]>([]);
   const { data, error, isLoading } = useBrowseObjects(bucketName, {
     prefix,
-    limit: 1000,
+    limit: PAGE_SIZE,
+    ...(page > 1 ? { next: cursors[page - 2] } : {}),
   });
+
+  const rowCount = (data?.prefixes.length || 0) + (data?.objects.length || 0);
+
+  // Step back if the current page was emptied (e.g. after a bulk delete).
+  useEffect(() => {
+    if (data && page > 1 && rowCount === 0) {
+      setPage((p) => p - 1);
+    }
+  }, [data, page, rowCount]);
+
+  const onPageChange = (value: number) => {
+    if (value > page) {
+      if (!data?.nextToken) return;
+      const token = data.nextToken;
+      setCursors((prev) => [...prev.slice(0, page - 1), token]);
+    }
+    setPage(value);
+    onSelectedChange?.([]);
+  };
 
   const onObjectClick = (object: Object) => {
     window.open(API_URL + object.url + "?view=1", "_blank");
@@ -51,7 +80,8 @@ const ObjectList = ({
     ...(data?.prefixes || []),
     ...(data?.objects || []).map((o) => (data?.prefix || "") + o.objectKey),
   ];
-  const allSelected = allKeys.length > 0 && selected.length === allKeys.length;
+  const selectedOnPage = allKeys.filter((k) => selected.includes(k)).length;
+  const allSelected = allKeys.length > 0 && selectedOnPage === allKeys.length;
 
   const toggleAll = () => {
     onSelectedChange?.(allSelected ? [] : allKeys);
@@ -71,12 +101,17 @@ const ObjectList = ({
         <TableHeader>
           <TableRow>
             <TableHead className="w-10">
-              <input
-                type="checkbox"
+              <Checkbox
                 aria-label="Select all"
-                className="h-4 w-4 cursor-pointer rounded border-input accent-primary align-middle"
-                checked={allSelected}
-                onChange={toggleAll}
+                className="align-middle"
+                checked={
+                  allSelected
+                    ? true
+                    : selectedOnPage > 0
+                      ? "indeterminate"
+                      : false
+                }
+                onCheckedChange={toggleAll}
               />
             </TableHead>
             <TableHead>Name</TableHead>
@@ -121,12 +156,11 @@ const ObjectList = ({
           {data?.prefixes.map((prefix) => (
             <TableRow key={prefix} className="group">
               <td className="w-10 p-3">
-                <input
-                  type="checkbox"
+                <Checkbox
                   aria-label={`Select ${prefix}`}
-                  className="h-4 w-4 cursor-pointer rounded border-input accent-primary align-middle"
+                  className="align-middle"
                   checked={selected.includes(prefix)}
-                  onChange={() => toggleOne(prefix)}
+                  onCheckedChange={() => toggleOne(prefix)}
                 />
               </td>
               <td
@@ -160,12 +194,11 @@ const ObjectList = ({
             return (
               <TableRow key={object.objectKey} className="group">
                 <td className="w-10 p-3">
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     aria-label={`Select ${object.objectKey}`}
-                    className="h-4 w-4 cursor-pointer rounded border-input accent-primary align-middle"
+                    className="align-middle"
                     checked={selected.includes(fullKey)}
-                    onChange={() => toggleOne(fullKey)}
+                    onCheckedChange={() => toggleOne(fullKey)}
                   />
                 </td>
                 <td
@@ -193,6 +226,20 @@ const ObjectList = ({
           })}
         </TableBody>
       </Table>
+
+      {data && (page > 1 || data.nextToken) ? (
+        <Pagination
+          className="border-t px-3 pt-2"
+          page={page}
+          hasNext={!!data.nextToken}
+          onPageChange={onPageChange}
+          summary={
+            rowCount
+              ? `Items ${(page - 1) * PAGE_SIZE + 1}–${(page - 1) * PAGE_SIZE + rowCount}`
+              : null
+          }
+        />
+      ) : null}
 
       <GotoTopButton />
     </div>
