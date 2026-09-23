@@ -175,19 +175,17 @@ func (b *Browse) PutObject(w http.ResponseWriter, r *http.Request) {
 	key := r.PathValue("key")
 	isDirectory := strings.HasSuffix(key, "/")
 
-	file, headers, err := r.FormFile("file")
-	if err != nil && !isDirectory {
-		utils.ResponseError(w, err)
+	// The request body is the raw object, streamed straight through to Garage
+	// so large files never have to fit in memory or on local disk.
+	size := r.ContentLength
+	if isDirectory {
+		size = 0
+	} else if size < 0 {
+		utils.ResponseErrorStatus(w, errors.New("missing Content-Length"), http.StatusLengthRequired)
 		return
-	}
-
-	if file != nil {
-		defer file.Close()
-	}
-	// Large uploads spill to a temp file on disk; Go does not delete it
-	// automatically, so clean it up once the request is done either way.
-	if r.MultipartForm != nil {
-		defer r.MultipartForm.RemoveAll()
+	} else if size > maxObjectSize {
+		utils.ResponseErrorStatus(w, fmt.Errorf("file is larger than the %s limit", "5 TiB"), http.StatusRequestEntityTooLarge)
+		return
 	}
 
 	client, err := getS3Client(bucket)
@@ -196,21 +194,22 @@ func (b *Browse) PutObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var contentType string = ""
-	var size int64 = 0
-
-	if file != nil {
-		contentType = headers.Header.Get("Content-Type")
-		size = headers.Size
+	input := &s3.PutObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	}
+	if contentType := r.Header.Get("Content-Type"); contentType != "" {
+		input.ContentType = aws.String(contentType)
 	}
 
-	result, err := client.PutObject(context.Background(), &s3.PutObjectInput{
-		Bucket:        aws.String(bucket),
-		Key:           aws.String(key),
-		Body:          file,
-		ContentLength: aws.Int64(size),
-		ContentType:   aws.String(contentType),
-	})
+	if isDirectory {
+		input.Body = strings.NewReader("")
+		input.ContentLength = aws.Int64(0)
+		_, err = client.PutObject(r.Context(), input)
+	} else {
+		input.Body = r.Body
+		err = uploadObject(r.Context(), client, input, size)
+	}
 
 	if err != nil {
 		utils.ResponseError(w, fmt.Errorf("cannot put object: %w", err))
@@ -232,7 +231,7 @@ func (b *Browse) PutObject(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	utils.ResponseSuccess(w, result)
+	utils.ResponseSuccess(w, map[string]interface{}{"key": key, "size": size})
 }
 
 func (b *Browse) DeleteObject(w http.ResponseWriter, r *http.Request) {
@@ -514,27 +513,5 @@ func getS3Client(bucket string) (*s3.Client, error) {
 		return nil, fmt.Errorf("cannot get credentials for bucket %s: %w", bucket, err)
 	}
 
-	// Determine endpoint and whether to disable HTTPS
-	endpoint := utils.Garage.GetS3Endpoint()
-	disableHTTPS := !strings.HasPrefix(endpoint, "https://")
-
-	// AWS config without BaseEndpoint
-	awsConfig := aws.Config{
-		Credentials: creds,
-		Region:      utils.Garage.GetS3Region(),
-	}
-
-	// Build S3 client with custom endpoint resolver for proper signing
-	client := s3.NewFromConfig(awsConfig, func(o *s3.Options) {
-		o.UsePathStyle = true
-		o.EndpointOptions.DisableHTTPS = disableHTTPS
-		o.EndpointResolver = s3.EndpointResolverFunc(func(region string, opts s3.EndpointResolverOptions) (aws.Endpoint, error) {
-			return aws.Endpoint{
-				URL:           endpoint,
-				SigningRegion: utils.Garage.GetS3Region(),
-			}, nil
-		})
-	})
-
-	return client, nil
+	return newS3Client(utils.Garage.GetS3Endpoint(), utils.Garage.GetS3Region(), creds), nil
 }

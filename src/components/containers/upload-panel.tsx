@@ -9,6 +9,7 @@ import {
   FileIcon,
   Folder,
   Loader2,
+  RotateCw,
   X,
 } from "lucide-react";
 import { uploadStore, setUploadOnComplete, UploadTask } from "@/stores/upload-store";
@@ -32,6 +33,29 @@ const UploadPanel = () => {
   const done = tasks.filter((t) => t.status === "success").length;
   const errors = tasks.filter((t) => t.status === "error").length;
   const allDone = active === 0;
+
+  // Leaving the page would abort in-flight uploads, so ask first.
+  useEffect(() => {
+    if (!active) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [active]);
+
+  const onClose = () => {
+    if (
+      active &&
+      !window.confirm(
+        `Cancel ${active} upload${active > 1 ? "s" : ""} in progress?`
+      )
+    ) {
+      return;
+    }
+    uploadStore.clearAll();
+  };
 
   // Auto-dismiss once everything finished cleanly.
   useEffect(() => {
@@ -72,7 +96,7 @@ const UploadPanel = () => {
           size="icon"
           className="h-7 w-7"
           aria-label="Close"
-          onClick={() => uploadStore.clearAll()}
+          onClick={onClose}
         >
           <X size={16} />
         </Button>
@@ -114,7 +138,15 @@ const TaskRow = ({ task }: { task: UploadTask }) => {
           <p className="min-w-0 flex-1 truncate text-sm" title={task.key}>
             {task.name}
           </p>
-          <span className="shrink-0 text-xs text-muted-foreground">
+          <span
+            className={cn(
+              "shrink-0 text-xs",
+              task.status === "error" && task.error !== "Cancelled"
+                ? "text-red-500"
+                : "text-muted-foreground"
+            )}
+            title={task.detail}
+          >
             {task.status === "uploading"
               ? `${task.progress}%`
               : task.status === "pending"
@@ -137,11 +169,22 @@ const TaskRow = ({ task }: { task: UploadTask }) => {
         ) : null}
       </div>
 
-      <span className="flex w-6 shrink-0 justify-end">
+      <span className="flex min-w-6 shrink-0 justify-end">
         {task.status === "success" ? (
           <Check size={16} className="text-emerald-500" />
         ) : task.status === "error" ? (
-          <CircleAlert size={16} className="text-red-500" />
+          <span className="flex items-center gap-1">
+            <button
+              type="button"
+              aria-label="Retry"
+              title="Retry"
+              onClick={() => uploadStore.retry(task.id)}
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <RotateCw size={14} />
+            </button>
+            <CircleAlert size={16} className="text-red-500" />
+          </span>
         ) : task.status === "uploading" ? (
           <button
             type="button"

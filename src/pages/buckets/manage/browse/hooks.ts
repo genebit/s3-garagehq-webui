@@ -26,14 +26,9 @@ export const usePutObject = (
   options?: UseMutationOptions<any, Error, PutObjectPayload>
 ) => {
   return useMutation({
-    mutationFn: async (body) => {
-      const formData = new FormData();
-      if (body.file) {
-        formData.append("file", body.file);
-      }
-
-      return api.put(`/browse/${bucket}/${body.key}`, { body: formData });
-    },
+    // The object is sent as the raw request body (folders have none).
+    mutationFn: (body) =>
+      api.put(`/browse/${bucket}/${body.key}`, { body: body.file ?? undefined }),
     ...options,
   });
 };

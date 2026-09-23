@@ -32,7 +32,8 @@ const api = {
 
     if (
       typeof options?.body === "object" &&
-      !(options.body instanceof FormData)
+      !(options.body instanceof FormData) &&
+      !(options.body instanceof Blob)
     ) {
       options.body = JSON.stringify(options.body);
       headers["Content-Type"] = "application/json";

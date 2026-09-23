@@ -22,7 +22,7 @@ func main() {
 	log.SetOutput(utils.Log.StdlibWriter())
 
 	// The scratch runtime image has no /tmp, so ensure a writable temp dir
-	// exists for multipart uploads that exceed the in-memory threshold.
+	// exists for anything that needs os.TempDir().
 	tmpDir := utils.GetEnv("TMPDIR", "/data/tmp")
 	if err := os.MkdirAll(tmpDir, 0o700); err != nil {
 		log.Println("Cannot create temp dir:", err)

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/pelletier/go-toml/v2"
 )
@@ -139,7 +140,9 @@ func (g *garage) Fetch(url string, options *FetchOptions) ([]byte, error) {
 		}
 	}
 
-	client := &http.Client{}
+	// Admin API calls are small; don't let an unresponsive Garage hang the
+	// requests that depend on them (e.g. credential lookup before an upload).
+	client := &http.Client{Timeout: 60 * time.Second}
 	res, err := client.Do(req)
 	if err != nil {
 		return nil, err

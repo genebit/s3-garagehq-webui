@@ -12,6 +12,7 @@ import { readDataTransferItems } from "@/lib/file-drop";
 import { uploadStore } from "@/stores/upload-store";
 import { UploadCloud } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const getInitialPrefixes = (searchParams: URLSearchParams) => {
   const prefix = searchParams.get("prefix");
@@ -68,7 +69,16 @@ const BrowseTab = () => {
     dragCounter.current = 0;
     setDragging(false);
 
-    const items = await readDataTransferItems(e.dataTransfer);
+    let items;
+    try {
+      items = await readDataTransferItems(e.dataTransfer);
+    } catch (err) {
+      console.error("Cannot read dropped files:", err);
+      toast.error("Couldn't read the dropped files.", {
+        description: "Please try again, or use the upload buttons instead.",
+      });
+      return;
+    }
     if (!items.length) return;
 
     uploadStore.enqueue(
