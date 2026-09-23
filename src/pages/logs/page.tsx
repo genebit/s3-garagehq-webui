@@ -2,6 +2,7 @@ import Page from "@/context/page-context";
 import { Card } from "@/components/ui/card";
 import Input from "@/components/ui/input";
 import Button from "@/components/ui/button";
+import Checkbox from "@/components/ui/checkbox";
 import { cn, dayjs, readableBytes } from "@/lib/utils";
 import { ChevronDown, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { useState } from "react";
@@ -93,15 +94,15 @@ const LogsPage = () => {
 
         <div className="flex-1" />
 
-        <label className="flex cursor-pointer items-center gap-2 text-sm text-muted-foreground">
-          <input
-            type="checkbox"
-            className="h-4 w-4 cursor-pointer rounded border-input accent-primary"
-            checked={autoRefresh}
-            onChange={(e) => setAutoRefresh(e.target.checked)}
-          />
-          Auto-refresh
-        </label>
+        <Checkbox
+          label={
+            <span className="font-normal text-muted-foreground">
+              Auto-refresh
+            </span>
+          }
+          checked={autoRefresh}
+          onCheckedChange={(c) => setAutoRefresh(c === true)}
+        />
 
         <Button
           variant="outline"

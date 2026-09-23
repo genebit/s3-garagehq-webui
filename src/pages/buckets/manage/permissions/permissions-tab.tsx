@@ -81,22 +81,22 @@ const PermissionsTab = () => {
                   <TableCell>
                     <Checkbox
                       checked={key.permissions?.read}
-                      readOnly
-                      className="cursor-default"
+                      tabIndex={-1}
+                      className="pointer-events-none"
                     />
                   </TableCell>
                   <TableCell>
                     <Checkbox
                       checked={key.permissions?.write}
-                      readOnly
-                      className="cursor-default"
+                      tabIndex={-1}
+                      className="pointer-events-none"
                     />
                   </TableCell>
                   <TableCell>
                     <Checkbox
                       checked={key.permissions?.owner}
-                      readOnly
-                      className="cursor-default"
+                      tabIndex={-1}
+                      className="pointer-events-none"
                     />
                   </TableCell>
                   <TableCell>

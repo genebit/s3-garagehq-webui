@@ -176,7 +176,7 @@ const AssignNodeDialog = () => {
                 <Checkbox
                   label="Gateway"
                   checked={field.value}
-                  onChange={(e) => field.onChange(e.target.checked)}
+                  onCheckedChange={(c) => field.onChange(c === true)}
                 />
               )}
             />

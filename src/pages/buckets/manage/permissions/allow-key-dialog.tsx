@@ -71,13 +71,13 @@ const AllowKeyDialog = ({ currentKeys }: Props) => {
   }, [keys, currentKeys]);
 
   const onToggleAll = (
-    e: React.ChangeEvent<HTMLInputElement>,
+    checked: boolean,
     field: keyof AllowKeysSchema["keys"][number]
   ) => {
     const curValues = form.getValues("keys");
     const newValues = curValues.map((item) => ({
       ...item,
-      [field]: e.target.checked,
+      [field]: checked,
     }));
     form.setValue("keys", newValues);
   };
@@ -113,26 +113,26 @@ const AllowKeyDialog = ({ currentKeys }: Props) => {
                 <TableHead>
                   <Checkbox
                     label="Key"
-                    onChange={(e) => onToggleAll(e, "checked")}
+                    onCheckedChange={(c) => onToggleAll(c === true, "checked")}
                   />
                 </TableHead>
                 <TableHead>Local Aliases</TableHead>
                 <TableHead>
                   <Checkbox
                     label="Read"
-                    onChange={(e) => onToggleAll(e, "read")}
+                    onCheckedChange={(c) => onToggleAll(c === true, "read")}
                   />
                 </TableHead>
                 <TableHead>
                   <Checkbox
                     label="Write"
-                    onChange={(e) => onToggleAll(e, "write")}
+                    onCheckedChange={(c) => onToggleAll(c === true, "write")}
                   />
                 </TableHead>
                 <TableHead>
                   <Checkbox
                     label="Owner"
-                    onChange={(e) => onToggleAll(e, "owner")}
+                    onCheckedChange={(c) => onToggleAll(c === true, "owner")}
                   />
                 </TableHead>
               </TableRow>

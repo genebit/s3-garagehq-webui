@@ -72,7 +72,7 @@ const ShareDialog = () => {
               key={item}
               label={item}
               checked={item === domain}
-              onChange={() => setDomain(item)}
+              onCheckedChange={() => setDomain(item)}
             />
           ))}
         </div>
