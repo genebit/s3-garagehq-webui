@@ -40,8 +40,11 @@ A simple admin web UI for [Garage](https://garagehq.deuxfleurs.fr/), a self-host
   a breadcrumb folder picker
 - **Drag-and-drop upload**, including whole folders and nested folder trees (recreated in the bucket
   exactly as dropped), plus a folder picker button
-- Background **upload queue** with a progress panel (per-file and overall progress, cancel, retry
-  visibility) so large uploads don't block the UI
+- Background **upload queue** with a progress panel (per-file and overall progress, cancel, retry)
+  so large uploads don't block the UI
+- **Multi-gigabyte uploads** streamed to Garage as multipart uploads — no practical size limit, and
+  nothing is buffered on the web UI's disk; failures always surface as an error with a retry option
+- **Paginated** object browser (50 items per page) and bucket list (15 per page, grid or list view)
 
 **UI** _(redesigned in this fork)_
 
@@ -100,7 +103,7 @@ services:
     restart: unless-stopped
     volumes:
       - ./garage.toml:/etc/garage.toml:ro
-      - webui-data:/data # required: user accounts, audit logs, upload temp files
+      - webui-data:/data # required: user accounts, audit logs
     ports:
       - 3909:3909
     environment:
@@ -111,8 +114,8 @@ volumes:
   webui-data:
 ```
 
-The `webui-data` volume is required by this fork — it persists the user accounts store, audit
-logs, and temporary files used while streaming large uploads. See
+The `webui-data` volume is required by this fork — it persists the user accounts store and audit
+logs. See
 [Environment Variables](#environment-variables) to customize its layout.
 
 ### Without Docker
@@ -213,7 +216,7 @@ Configurable envs:
 | `AUTH_USER_PASS` | _(none)_ | Legacy single-user login, `username:bcrypt_hash`. Only used while no users are registered — see [Access Control](#access-control-users--roles). |
 | `USERS_PATH` | `/data/users.json` | Where the multi-user account store is persisted. |
 | `LOGS_PATH` | `/data/logs/app.log` | Where the audit log file is persisted. |
-| `TMPDIR` | `/data/tmp` | Temp directory used while streaming large object uploads to disk. |
+| `TMPDIR` | `/data/tmp` | General temp directory (the scratch image has no `/tmp`). Uploads are streamed and don't use it. |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | _(none)_ | Enables Google sign-in when both are set — see [Google sign-in](#google-sign-in-optional). |
 | `GOOGLE_ALLOWED_DOMAINS` | `gbox.adnu.edu.ph,adnu.edu.ph` | Comma-separated hosted-domain allowlist for Google sign-in. |
 
@@ -313,6 +316,16 @@ is available as an alternative to dragging. Uploads run through a background que
 progress panel at the bottom-right of the screen, with per-file and overall progress, so you can
 keep navigating the app while an upload is in flight.
 
+Uploads are streamed straight through to Garage — files larger than 16 MiB are sent as S3 multipart
+uploads, so there is no practical size limit (S3 caps a single object at 5 TiB) and the web UI keeps
+memory use bounded without buffering files on disk. If an upload fails for any reason (network
+drop, expired session, Garage unavailable or unresponsive), the panel marks the file with a short
+reason and a **Retry** button, and an error notification is shown; a cancelled or failed upload is
+aborted on the Garage side so no partial object is left behind. The browser asks for confirmation
+before you leave the page while uploads are still running.
+
+Folders with many objects are paginated 50 items per page; select-all applies to the current page.
+
 ### Logs (audit trail)
 
 Owners and admins have access to a **Logs** page in the sidebar, showing a searchable,
@@ -327,6 +340,18 @@ history survives restarts.
 ### Running
 
 Once your instance of Garage Web UI is started, you can open the web UI at http://your-ip:3909. You can place it behind a reverse proxy to secure it with SSL.
+
+If you do, make sure the proxy allows large request bodies and streams them instead of buffering,
+otherwise large uploads will be rejected (HTTP 413) or held in the proxy first. For nginx:
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:3909;
+    client_max_body_size 0;        # no upload size limit
+    proxy_request_buffering off;   # stream uploads straight to the web UI
+    proxy_read_timeout 300s;
+}
+```
 
 ## Development
 
@@ -410,10 +435,11 @@ $ docker compose up -d --build webui
 
 Make sure you are using the latest version of Garage. If the data cannot be loaded, please check whether your instance of Garage has the admin API enabled and the ports are accessible.
 
-Large uploads are buffered to disk (`TMPDIR`, default `/data/tmp`) while streaming to Garage, so
-ensure the `webui-data` volume has enough free space for the largest file you expect to upload.
-Objects near or above 5 GiB may fail — that's the S3 protocol's limit for a single-request upload;
-true multi-gigabyte objects need multipart upload, which isn't implemented in this fork yet.
+If large uploads fail with "File too large for the server", a reverse proxy in front of the web UI
+is limiting the request size — see the proxy settings under [Running](#running). If Garage stops
+responding mid-upload, the upload fails after about three minutes (a 60-second stall timeout, retried)
+rather than hanging. When Garage is unreachable the web UI can't abort the multipart upload, so its
+parts may remain until you clean them up (e.g. `garage bucket cleanup-incomplete-uploads`).
 
 If you encounter any problems, please do not hesitate to submit an issue [here](https://github.com/genebit/s3-garagehq-webui/issues). You can describe the problem and attach the error logs (the in-app **Logs** page, or `LOGS_PATH` on disk, may also help).
 
