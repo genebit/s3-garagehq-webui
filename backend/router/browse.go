@@ -40,6 +40,16 @@ func (b *Browse) GetObjects(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if search := strings.TrimSpace(query.Get("search")); search != "" {
+		result, err := searchObjects(r.Context(), client, bucket, prefix, search, continuationToken, limit)
+		if err != nil {
+			utils.ResponseError(w, err)
+			return
+		}
+		utils.ResponseSuccess(w, result)
+		return
+	}
+
 	objects, err := client.ListObjectsV2(context.Background(), &s3.ListObjectsV2Input{
 		Bucket:            aws.String(bucket),
 		Prefix:            aws.String(prefix),
@@ -55,7 +65,7 @@ func (b *Browse) GetObjects(w http.ResponseWriter, r *http.Request) {
 
 	result := schema.BrowseObjectResult{
 		Prefixes:  []string{},
-		Objects:   []schema.BrowserObject{},
+		Objects:   toBrowserObjects(bucket, prefix, objects.Contents),
 		Prefix:    prefix,
 		NextToken: objects.NextContinuationToken,
 	}
@@ -64,21 +74,26 @@ func (b *Browse) GetObjects(w http.ResponseWriter, r *http.Request) {
 		result.Prefixes = append(result.Prefixes, *prefix.Prefix)
 	}
 
-	for _, object := range objects.Contents {
+	utils.ResponseSuccess(w, result)
+}
+
+// toBrowserObjects converts S3 objects to browser rows, with keys made
+// relative to prefix. The folder's own marker object (empty name) is skipped.
+func toBrowserObjects(bucket, prefix string, objects []types.Object) []schema.BrowserObject {
+	out := []schema.BrowserObject{}
+	for _, object := range objects {
 		key := strings.TrimPrefix(*object.Key, prefix)
 		if key == "" {
 			continue
 		}
-
-		result.Objects = append(result.Objects, schema.BrowserObject{
+		out = append(out, schema.BrowserObject{
 			ObjectKey:    &key,
 			LastModified: object.LastModified,
 			Size:         object.Size,
 			Url:          fmt.Sprintf("/browse/%s/%s", bucket, *object.Key),
 		})
 	}
-
-	utils.ResponseSuccess(w, result)
+	return out
 }
 
 func (b *Browse) GetOneObject(w http.ResponseWriter, r *http.Request) {

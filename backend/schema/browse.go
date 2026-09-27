@@ -7,6 +7,7 @@ type BrowseObjectResult struct {
 	Objects   []BrowserObject `json:"objects"`
 	Prefix    string          `json:"prefix"`
 	NextToken *string         `json:"nextToken"`
+	Truncated bool            `json:"truncated"`
 }
 
 type BrowserObject struct {
