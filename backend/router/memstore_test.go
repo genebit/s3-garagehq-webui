@@ -22,7 +22,9 @@ import (
 type memS3 struct {
 	mu      sync.Mutex
 	objects map[string][]byte
+	types   map[string]string // content type per key; copies carry it like S3
 	uploads map[string]map[int32][]byte
+	upTypes map[string]string // content type given to each multipart upload
 
 	lists, copies, partCopies, aborted int
 
@@ -34,7 +36,12 @@ type memS3 struct {
 var _ s3API = (*memS3)(nil)
 
 func newMemS3(keys ...string) *memS3 {
-	m := &memS3{objects: map[string][]byte{}, uploads: map[string]map[int32][]byte{}}
+	m := &memS3{
+		objects: map[string][]byte{},
+		types:   map[string]string{},
+		uploads: map[string]map[int32][]byte{},
+		upTypes: map[string]string{},
+	}
 	for _, k := range keys {
 		m.objects[k] = []byte("data:" + k)
 	}
@@ -112,27 +119,31 @@ func (m *memS3) HeadObject(_ context.Context, in *s3.HeadObjectInput, _ ...func(
 	if !ok {
 		return nil, &types.NotFound{}
 	}
-	return &s3.HeadObjectOutput{ContentLength: aws.Int64(int64(len(data)))}, nil
+	return &s3.HeadObjectOutput{
+		ContentLength: aws.Int64(int64(len(data))),
+		ContentType:   aws.String(m.types[aws.ToString(in.Key)]),
+	}, nil
 }
 
-// source resolves a CopySource ("bucket/key", path-escaped). Caller holds the lock.
-func (m *memS3) source(copySource *string) ([]byte, error) {
+// source resolves a CopySource ("bucket/key", path-escaped) to its key and
+// data. Caller holds the lock.
+func (m *memS3) source(copySource *string) (string, []byte, error) {
 	raw, err := url.PathUnescape(aws.ToString(copySource))
 	if err != nil {
-		return nil, err
+		return "", nil, err
 	}
 	_, key, _ := strings.Cut(raw, "/")
 	data, ok := m.objects[key]
 	if !ok {
-		return nil, &types.NoSuchKey{}
+		return "", nil, &types.NoSuchKey{}
 	}
-	return data, nil
+	return key, data, nil
 }
 
 func (m *memS3) CopyObject(_ context.Context, in *s3.CopyObjectInput, _ ...func(*s3.Options)) (*s3.CopyObjectOutput, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	data, err := m.source(in.CopySource)
+	src, data, err := m.source(in.CopySource)
 	if err != nil {
 		return nil, err
 	}
@@ -140,6 +151,7 @@ func (m *memS3) CopyObject(_ context.Context, in *s3.CopyObjectInput, _ ...func(
 		return nil, errors.New("EntityTooLarge: copy source is larger than the maximum allowable size")
 	}
 	m.objects[aws.ToString(in.Key)] = append([]byte(nil), data...)
+	m.types[aws.ToString(in.Key)] = m.types[src]
 	m.copies++
 	return &s3.CopyObjectOutput{}, nil
 }
@@ -165,11 +177,12 @@ func (m *memS3) DeleteObjects(_ context.Context, in *s3.DeleteObjectsInput, _ ..
 	return &s3.DeleteObjectsOutput{}, nil
 }
 
-func (m *memS3) CreateMultipartUpload(_ context.Context, _ *s3.CreateMultipartUploadInput, _ ...func(*s3.Options)) (*s3.CreateMultipartUploadOutput, error) {
+func (m *memS3) CreateMultipartUpload(_ context.Context, in *s3.CreateMultipartUploadInput, _ ...func(*s3.Options)) (*s3.CreateMultipartUploadOutput, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	id := "up-" + strconv.Itoa(len(m.uploads)+1)
 	m.uploads[id] = map[int32][]byte{}
+	m.upTypes[id] = aws.ToString(in.ContentType)
 	return &s3.CreateMultipartUploadOutput{UploadId: aws.String(id)}, nil
 }
 
@@ -180,7 +193,7 @@ func (m *memS3) UploadPartCopy(_ context.Context, in *s3.UploadPartCopyInput, _ 
 	if n == m.failPartCopy {
 		return nil, errors.New("InternalError: part copy failed")
 	}
-	data, err := m.source(in.CopySource)
+	_, data, err := m.source(in.CopySource)
 	if err != nil {
 		return nil, err
 	}
@@ -202,6 +215,7 @@ func (m *memS3) CompleteMultipartUpload(_ context.Context, in *s3.CompleteMultip
 		buf.Write(parts[aws.ToInt32(p.PartNumber)])
 	}
 	m.objects[aws.ToString(in.Key)] = buf.Bytes()
+	m.types[aws.ToString(in.Key)] = m.upTypes[aws.ToString(in.UploadId)]
 	delete(m.uploads, aws.ToString(in.UploadId))
 	return &s3.CompleteMultipartUploadOutput{}, nil
 }

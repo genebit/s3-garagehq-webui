@@ -39,31 +39,45 @@ func copyPartSize(size int64) int64 {
 // copyObject copies key to newKey inside bucket. size is the object's size,
 // or negative when unknown (it is then looked up).
 func copyObject(ctx context.Context, client s3API, bucket, key, newKey string, size int64) error {
-	if size < 0 {
-		head, err := client.HeadObject(ctx, &s3.HeadObjectInput{Bucket: aws.String(bucket), Key: aws.String(key)})
-		if err != nil {
-			return err
-		}
-		size = aws.ToInt64(head.ContentLength)
+	if size >= 0 && size <= maxSingleCopySize {
+		return singleCopy(ctx, client, bucket, key, newKey)
 	}
 
-	if size <= maxSingleCopySize {
-		_, err := client.CopyObject(ctx, &s3.CopyObjectInput{
-			Bucket:     aws.String(bucket),
-			CopySource: copySource(bucket, key),
-			Key:        aws.String(newKey),
-		})
+	// Unknown size, or a multipart copy, which also needs the source's
+	// headers: unlike CopyObject, a multipart upload doesn't inherit them.
+	head, err := client.HeadObject(ctx, &s3.HeadObjectInput{Bucket: aws.String(bucket), Key: aws.String(key)})
+	if err != nil {
 		return err
 	}
-	return multipartCopy(ctx, client, bucket, key, newKey, size)
+	if aws.ToInt64(head.ContentLength) <= maxSingleCopySize {
+		return singleCopy(ctx, client, bucket, key, newKey)
+	}
+	return multipartCopy(ctx, client, bucket, key, newKey, head)
 }
 
-// multipartCopy copies an object too large for CopyObject in ranged parts.
-// A failed copy is aborted so no orphaned parts are left behind.
-func multipartCopy(ctx context.Context, client s3API, bucket, key, newKey string, size int64) error {
+func singleCopy(ctx context.Context, client s3API, bucket, key, newKey string) error {
+	_, err := client.CopyObject(ctx, &s3.CopyObjectInput{
+		Bucket:     aws.String(bucket),
+		CopySource: copySource(bucket, key),
+		Key:        aws.String(newKey),
+	})
+	return err
+}
+
+// multipartCopy copies an object too large for CopyObject in ranged parts,
+// keeping the source's content headers and metadata. A failed copy is
+// aborted so no orphaned parts are left behind.
+func multipartCopy(ctx context.Context, client s3API, bucket, key, newKey string, source *s3.HeadObjectOutput) error {
+	size := aws.ToInt64(source.ContentLength)
 	upload, err := client.CreateMultipartUpload(ctx, &s3.CreateMultipartUploadInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(newKey),
+		Bucket:             aws.String(bucket),
+		Key:                aws.String(newKey),
+		ContentType:        source.ContentType,
+		CacheControl:       source.CacheControl,
+		ContentDisposition: source.ContentDisposition,
+		ContentEncoding:    source.ContentEncoding,
+		ContentLanguage:    source.ContentLanguage,
+		Metadata:           source.Metadata,
 	})
 	if err != nil {
 		return err

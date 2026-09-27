@@ -140,3 +140,17 @@ func TestCopyPartSizeStaysWithinPartLimit(t *testing.T) {
 		}
 	}
 }
+
+func TestCopyObjectKeepsContentTypeInMultipartCopy(t *testing.T) {
+	withSmallCopyLimits(t)
+	m := newMemS3()
+	m.objects["big.mp4"] = []byte("0123456789")
+	m.types["big.mp4"] = "video/mp4"
+
+	if err := copyObject(context.Background(), m, "b", "big.mp4", "moved.mp4", 10); err != nil {
+		t.Fatal(err)
+	}
+	if got := m.types["moved.mp4"]; got != "video/mp4" {
+		t.Errorf("content type after multipart copy = %q, want video/mp4", got)
+	}
+}
