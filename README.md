@@ -45,6 +45,11 @@ A simple admin web UI for [Garage](https://garagehq.deuxfleurs.fr/), a self-host
 - **Multi-gigabyte uploads** streamed to Garage as multipart uploads — no practical size limit, and
   nothing is buffered on the web UI's disk; failures always surface as an error with a retry option
 - **Paginated** object browser (50 items per page) and bucket list (15 per page, grid or list view)
+- **Search** the current folder by name (all pages, case-insensitive)
+- **Right-click menu** on files and folders: preview, open, download, rename, share, move, delete
+- **Rename** files and folders (never overwrites an existing name)
+- **Preview and details pane** for images, video, audio, PDF and text, with size, type, dates and ETag
+- **Shift-click** checkboxes to select a range of rows
 
 **UI** _(redesigned in this fork)_
 
@@ -325,6 +330,12 @@ aborted on the Garage side so no partial object is left behind. The browser asks
 before you leave the page while uploads are still running.
 
 Folders with many objects are paginated 50 items per page; select-all applies to the current page.
+
+Use the search box in the toolbar to find files by name anywhere in the current folder. Right-click
+any row (or use its ⋯ button) for the full set of actions; right-clicking one of several selected
+rows acts on the whole selection. Click a checkbox, then shift-click another to select every row in
+between. Clicking a file opens it in the details pane — docked on the right on wide screens (collapse
+it with the toolbar button), floating over the list on narrower ones (close it with Esc).
 
 ### Logs (audit trail)
 
