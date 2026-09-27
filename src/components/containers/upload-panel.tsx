@@ -15,6 +15,7 @@ import {
 import { uploadStore, setUploadOnComplete, UploadTask } from "@/stores/upload-store";
 import { cn, readableBytes } from "@/lib/utils";
 import Button from "@/components/ui/button";
+import { confirmDialog } from "@/lib/confirm";
 
 const UploadPanel = () => {
   const queryClient = useQueryClient();
@@ -45,14 +46,16 @@ const UploadPanel = () => {
     return () => window.removeEventListener("beforeunload", onBeforeUnload);
   }, [active]);
 
-  const onClose = () => {
-    if (
-      active &&
-      !window.confirm(
-        `Cancel ${active} upload${active > 1 ? "s" : ""} in progress?`
-      )
-    ) {
-      return;
+  const onClose = async () => {
+    if (active) {
+      const ok = await confirmDialog({
+        title: `Cancel ${active} upload${active > 1 ? "s" : ""}?`,
+        description: "Files that haven't finished uploading won't be saved.",
+        confirmText: "Cancel uploads",
+        cancelText: "Keep uploading",
+        destructive: true,
+      });
+      if (!ok) return;
     }
     uploadStore.clearAll();
   };

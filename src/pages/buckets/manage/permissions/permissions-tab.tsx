@@ -16,6 +16,7 @@ import { useMemo } from "react";
 import { toast } from "sonner";
 import { handleError } from "@/lib/utils";
 import { useBucketContext } from "../context";
+import { confirmDialog } from "@/lib/confirm";
 
 const PermissionsTab = () => {
   const { bucket, refetch } = useBucketContext();
@@ -37,8 +38,15 @@ const PermissionsTab = () => {
     );
   }, [bucket?.keys]);
 
-  const onRemove = (id: string) => {
-    if (window.confirm("Are you sure you want to remove this key?")) {
+  const onRemove = async (id: string) => {
+    const ok = await confirmDialog({
+      title: "Remove this key's access?",
+      description:
+        "The key will lose all read, write and owner access to this bucket.",
+      confirmText: "Remove",
+      destructive: true,
+    });
+    if (ok) {
       denyKey.mutate({
         keyId: id,
         permissions: { read: true, write: true, owner: true },

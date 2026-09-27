@@ -18,6 +18,7 @@ import { InputField } from "@/components/ui/input";
 import { useEffect, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useBucketContext } from "../context";
+import { confirmDialog } from "@/lib/confirm";
 
 const AliasesSection = () => {
   const { bucket: data, canManage } = useBucketContext();
@@ -31,8 +32,14 @@ const AliasesSection = () => {
     onError: handleError,
   });
 
-  const onRemoveAlias = (alias: string) => {
-    if (window.confirm("Are you sure you want to remove this alias?")) {
+  const onRemoveAlias = async (alias: string) => {
+    const ok = await confirmDialog({
+      title: "Remove this alias?",
+      description: `The bucket will no longer be reachable as "${alias}".`,
+      confirmText: "Remove",
+      destructive: true,
+    });
+    if (ok) {
       removeAlias.mutate(alias);
     }
   };

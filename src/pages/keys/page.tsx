@@ -19,6 +19,7 @@ import { useCallback, useMemo, useState } from "react";
 import api from "@/lib/api";
 import { useAuth } from "@/hooks/useAuth";
 import DeveloperKeys from "./components/developer-keys";
+import { confirmDialog } from "@/lib/confirm";
 
 const KeysPage = () => {
   const auth = useAuth();
@@ -62,8 +63,15 @@ const ManagerKeysPage = () => {
     }
   }, []);
 
-  const onRemove = (id: string) => {
-    if (window.confirm("Are you sure you want to remove this key?")) {
+  const onRemove = async (id: string) => {
+    const ok = await confirmDialog({
+      title: "Remove this key?",
+      description:
+        "Applications using it will lose access to every bucket it was granted. This can't be undone.",
+      confirmText: "Remove",
+      destructive: true,
+    });
+    if (ok) {
       removeKey.mutate(id);
     }
   };

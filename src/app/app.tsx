@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState } from "react";
 import ThemeProvider from "@/components/containers/theme-provider";
+import ConfirmDialog from "@/components/ui/confirm-dialog";
 import "./styles.css";
 
 const App = () => {
@@ -15,6 +16,7 @@ const App = () => {
         <Router />
       </QueryClientProvider>
       <Toaster richColors />
+      <ConfirmDialog />
       <ThemeProvider />
     </PageContextProvider>
   );

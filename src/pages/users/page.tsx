@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { handleError, dayjs } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
 import { User } from "./types";
+import { confirmDialog } from "@/lib/confirm";
 
 const UsersPage = () => {
   const { data, refetch } = useUsers();
@@ -30,8 +31,14 @@ const UsersPage = () => {
     onError: handleError,
   });
 
-  const onRemove = (user: User) => {
-    if (window.confirm(`Remove user "${user.username}"?`)) {
+  const onRemove = async (user: User) => {
+    const ok = await confirmDialog({
+      title: `Remove user "${user.username}"?`,
+      description: "They will no longer be able to sign in.",
+      confirmText: "Remove",
+      destructive: true,
+    });
+    if (ok) {
       deleteUser.mutate(user.id);
     }
   };

@@ -49,6 +49,9 @@ jobs:
       - name: Typecheck frontend
         run: pnpm exec tsc -b
 
+      - name: Frontend unit tests
+        run: pnpm test
+
   publish:
     name: Build and push image
     needs: check

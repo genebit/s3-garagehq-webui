@@ -10,6 +10,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { useRemoveBucket } from "../hooks";
 import { toast } from "sonner";
 import { handleError } from "@/lib/utils";
+import { confirmDialog } from "@/lib/confirm";
 
 const MenuButton = () => {
   const { id } = useParams();
@@ -23,8 +24,14 @@ const MenuButton = () => {
     onError: handleError,
   });
 
-  const onRemove = () => {
-    if (window.confirm("Are you sure you want to remove this bucket?")) {
+  const onRemove = async () => {
+    const ok = await confirmDialog({
+      title: "Remove this bucket?",
+      description: "The bucket must be empty. This can't be undone.",
+      confirmText: "Remove",
+      destructive: true,
+    });
+    if (ok) {
       removeBucket.mutate(id!);
     }
   };

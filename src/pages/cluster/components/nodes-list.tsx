@@ -42,6 +42,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { confirmDialog } from "@/lib/confirm";
 
 type NodeListProps = {
   nodes: Node[];
@@ -117,26 +118,39 @@ const NodesList = ({ nodes }: NodeListProps) => {
     });
   };
 
-  const onUnassign = (id: string) => {
-    if (window.confirm("Are you sure you want to unassign this node?")) {
+  const onUnassign = async (id: string) => {
+    const ok = await confirmDialog({
+      title: "Unassign this node?",
+      description:
+        "It will be removed from the staged cluster layout. Apply the layout to make it take effect.",
+      confirmText: "Unassign",
+      destructive: true,
+    });
+    if (ok) {
       unassignNode.mutate(id);
     }
   };
 
-  const onRevert = () => {
-    if (
-      window.confirm("Are you sure you want to revert any changes made?") &&
-      data?.version != null
-    ) {
+  const onRevert = async () => {
+    const ok = await confirmDialog({
+      title: "Revert layout changes?",
+      description: "All staged changes to the cluster layout will be discarded.",
+      confirmText: "Revert",
+      destructive: true,
+    });
+    if (ok && data?.version != null) {
       revertChanges.mutate(data?.version + 1);
     }
   };
 
-  const onApply = () => {
-    if (
-      window.confirm("Are you sure you want to apply your layout changes?") &&
-      data?.version != null
-    ) {
+  const onApply = async () => {
+    const ok = await confirmDialog({
+      title: "Apply layout changes?",
+      description:
+        "Garage will rebalance data across the cluster to match the new layout.",
+      confirmText: "Apply",
+    });
+    if (ok && data?.version != null) {
       applyChanges.mutate(data?.version + 1);
     }
   };
