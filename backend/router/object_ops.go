@@ -163,3 +163,48 @@ func moveObjectsWithPrefix(ctx context.Context, client s3API, bucket, prefix, de
 
 	return moved, nil
 }
+
+// deleteObjectsWithPrefix deletes every object under prefix, 1,000 at a time
+// (the S3 limit per DeleteObjects call), and returns how many were deleted.
+func deleteObjectsWithPrefix(ctx context.Context, client s3API, bucket, prefix string) (int, error) {
+	deleted := 0
+	prevFirst := ""
+
+	for {
+		// Always list from the start: the previous batch is gone, so the
+		// next objects are at the front again.
+		list, err := client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
+			Bucket: aws.String(bucket),
+			Prefix: aws.String(prefix),
+		})
+		if err != nil {
+			return deleted, err
+		}
+		if len(list.Contents) == 0 {
+			return deleted, nil
+		}
+
+		first := aws.ToString(list.Contents[0].Key)
+		if first == prevFirst {
+			return deleted, fmt.Errorf("objects under %q could not be deleted", prefix)
+		}
+		prevFirst = first
+
+		ids := make([]types.ObjectIdentifier, 0, len(list.Contents))
+		for _, object := range list.Contents {
+			ids = append(ids, types.ObjectIdentifier{Key: object.Key})
+		}
+
+		res, err := client.DeleteObjects(ctx, &s3.DeleteObjectsInput{
+			Bucket: aws.String(bucket),
+			Delete: &types.Delete{Objects: ids, Quiet: aws.Bool(true)},
+		})
+		if err != nil {
+			return deleted, err
+		}
+		if len(res.Errors) > 0 {
+			return deleted, fmt.Errorf("%s: %s", aws.ToString(res.Errors[0].Key), aws.ToString(res.Errors[0].Message))
+		}
+		deleted += len(ids)
+	}
+}

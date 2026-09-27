@@ -8,6 +8,8 @@ import (
 	"io"
 	"khairul169/garage-webui/schema"
 	"khairul169/garage-webui/utils"
+	"log"
+	"mime"
 	"net/http"
 	"strconv"
 	"strings"
@@ -115,21 +117,35 @@ func (b *Browse) GetOneObject(w http.ResponseWriter, r *http.Request) {
 			Key:    aws.String(key),
 		})
 		if err != nil {
-			utils.ResponseError(w, err)
+			if isNotFound(err) {
+				utils.ResponseErrorStatus(w, err, http.StatusNotFound)
+			} else {
+				utils.ResponseError(w, err)
+			}
+			return
 		}
 		utils.ResponseSuccess(w, object)
 		return
 	}
 
-	object, err := client.GetObject(context.Background(), &s3.GetObjectInput{
+	input := &s3.GetObjectInput{
 		Bucket: aws.String(bucket),
 		Key:    aws.String(key),
-	})
+	}
+	// Pass ranged reads through so video/audio previews can seek.
+	if rng := r.Header.Get("Range"); rng != "" && !thumbnail {
+		input.Range = aws.String(rng)
+	}
+	object, err := client.GetObject(r.Context(), input)
 
 	if err != nil {
 		var ae smithy.APIError
 		if errors.As(err, &ae) && ae.ErrorCode() == "NoSuchKey" {
 			utils.ResponseErrorStatus(w, err, http.StatusNotFound)
+			return
+		}
+		if errors.As(err, &ae) && ae.ErrorCode() == "InvalidRange" {
+			utils.ResponseErrorStatus(w, err, http.StatusRequestedRangeNotSatisfiable)
 			return
 		}
 
@@ -140,9 +156,7 @@ func (b *Browse) GetOneObject(w http.ResponseWriter, r *http.Request) {
 	defer object.Body.Close()
 	keys := strings.Split(key, "/")
 
-	if download {
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=%s", keys[len(keys)-1]))
-	} else if thumbnail {
+	if thumbnail {
 		body, err := io.ReadAll(object.Body)
 		if err != nil {
 			utils.ResponseError(w, err)
@@ -161,26 +175,11 @@ func (b *Browse) GetOneObject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Header().Set("Cache-Control", "max-age=86400")
-	w.Header().Set("Last-Modified", object.LastModified.Format(time.RFC1123))
-
-	if object.ContentType != nil {
-		w.Header().Set("Content-Type", *object.ContentType)
-	} else {
-		w.Header().Set("Content-Type", "application/octet-stream")
-	}
-	if object.ContentLength != nil {
-		w.Header().Set("Content-Length", strconv.FormatInt(*object.ContentLength, 10))
-	}
-	if object.ETag != nil {
-		w.Header().Set("Etag", *object.ETag)
-	}
-
-	_, err = io.Copy(w, object.Body)
-
-	if err != nil {
-		utils.ResponseError(w, err)
-		return
+	w.WriteHeader(writeObjectHeaders(w.Header(), object, keys[len(keys)-1], download))
+	// Headers are already sent, so a failed copy (usually the client going
+	// away) can only be logged.
+	if _, err := io.Copy(w, object.Body); err != nil {
+		log.Printf("Cannot send %s/%s: %v", bucket, key, err)
 	}
 }
 
@@ -262,52 +261,20 @@ func (b *Browse) DeleteObject(w http.ResponseWriter, r *http.Request) {
 
 	// Delete directory and its content
 	if isDirectory && recursive {
-		objects, err := client.ListObjectsV2(context.Background(), &s3.ListObjectsV2Input{
-			Bucket: aws.String(bucket),
-			Prefix: aws.String(key),
-		})
-
+		count, err := deleteObjectsWithPrefix(r.Context(), client, bucket, key)
 		if err != nil {
-			utils.ResponseError(w, err)
+			utils.ResponseError(w, fmt.Errorf("cannot delete folder: %w", err))
 			return
 		}
 
-		if len(objects.Contents) == 0 {
-			utils.ResponseSuccess(w, true)
-			return
-		}
-
-		keys := make([]types.ObjectIdentifier, 0, len(objects.Contents))
-
-		for _, object := range objects.Contents {
-			keys = append(keys, types.ObjectIdentifier{
-				Key: object.Key,
-			})
-		}
-
-		res, err := client.DeleteObjects(context.Background(), &s3.DeleteObjectsInput{
-			Bucket: aws.String(bucket),
-			Delete: &types.Delete{Objects: keys},
-		})
-
-		if err != nil {
-			utils.ResponseError(w, fmt.Errorf("cannot delete object: %w", err))
-			return
-		}
-
-		if len(res.Errors) > 0 {
-			utils.ResponseError(w, fmt.Errorf("cannot delete object: %v", res.Errors[0]))
-			return
-		}
-
-		utils.Audit(r, "INFO", fmt.Sprintf("User %s deleted folder %q (%d object(s)) from bucket %q", utils.AuditUser(r), key, len(keys), bucket), map[string]interface{}{
+		utils.Audit(r, "INFO", fmt.Sprintf("User %s deleted folder %q (%d object(s)) from bucket %q", utils.AuditUser(r), key, count, bucket), map[string]interface{}{
 			"event":  "object_delete_folder",
 			"bucket": bucket,
 			"key":    key,
-			"count":  len(keys),
+			"count":  count,
 		})
 
-		utils.ResponseSuccess(w, res)
+		utils.ResponseSuccess(w, map[string]int{"deleted": count})
 		return
 	}
 
@@ -476,4 +443,33 @@ func getS3Client(bucket string) (*s3.Client, error) {
 	}
 
 	return newS3Client(utils.Garage.GetS3Endpoint(), utils.Garage.GetS3Region(), creds), nil
+}
+
+// writeObjectHeaders copies an object's metadata onto the response and
+// returns the status to send: 206 for a ranged read, 200 otherwise.
+func writeObjectHeaders(h http.Header, object *s3.GetObjectOutput, filename string, download bool) int {
+	if download {
+		h.Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": filename}))
+	}
+	h.Set("Cache-Control", "max-age=86400")
+	h.Set("Accept-Ranges", "bytes")
+	if object.LastModified != nil {
+		h.Set("Last-Modified", object.LastModified.UTC().Format(http.TimeFormat))
+	}
+	if object.ContentType != nil {
+		h.Set("Content-Type", *object.ContentType)
+	} else {
+		h.Set("Content-Type", "application/octet-stream")
+	}
+	if object.ContentLength != nil {
+		h.Set("Content-Length", strconv.FormatInt(*object.ContentLength, 10))
+	}
+	if object.ETag != nil {
+		h.Set("Etag", *object.ETag)
+	}
+	if object.ContentRange != nil {
+		h.Set("Content-Range", *object.ContentRange)
+		return http.StatusPartialContent
+	}
+	return http.StatusOK
 }
