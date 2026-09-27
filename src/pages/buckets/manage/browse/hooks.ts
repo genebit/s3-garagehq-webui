@@ -1,4 +1,4 @@
-import api from "@/lib/api";
+import api, { APIError } from "@/lib/api";
 import {
   useMutation,
   UseMutationOptions,
@@ -6,9 +6,11 @@ import {
 } from "@tanstack/react-query";
 import {
   GetObjectsResult,
+  ObjectInfo,
   PutObjectPayload,
   UseBrowserObjectOptions,
 } from "./types";
+import { objectPath, TEXT_PREVIEW_BYTES } from "./browse-utils";
 
 export const useBrowseObjects = (
   bucket: string,
@@ -74,5 +76,48 @@ export const useMoveObjects = (
   return useMutation({
     mutationFn: (body) => api.post(`/browse/${bucket}`, { body }),
     ...options,
+  });
+};
+
+export const useRenameObject = (
+  bucket: string,
+  options?: UseMutationOptions<
+    { key: string; moved: number },
+    APIError,
+    { key: string; name: string }
+  >
+) => {
+  return useMutation({
+    mutationFn: ({ key, name }) =>
+      api.patch<{ key: string; moved: number }>(objectPath(bucket, key), {
+        body: { name },
+      }),
+    ...options,
+  });
+};
+
+export const useObjectInfo = (bucket: string, key: string | null) => {
+  return useQuery<ObjectInfo, APIError>({
+    queryKey: ["browse", bucket, "info", key],
+    queryFn: () => api.get<ObjectInfo>(objectPath(bucket, key!)),
+    enabled: !!key,
+    retry: false,
+  });
+};
+
+/** The first TEXT_PREVIEW_BYTES of a text file, via a ranged request. */
+export const useTextPreview = (url: string | null, etag?: string) => {
+  return useQuery({
+    queryKey: ["text-preview", url, etag],
+    enabled: !!url,
+    retry: false,
+    queryFn: async () => {
+      const res = await fetch(url!, {
+        credentials: "include",
+        headers: { Range: `bytes=0-${TEXT_PREVIEW_BYTES - 1}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.text();
+    },
   });
 };
