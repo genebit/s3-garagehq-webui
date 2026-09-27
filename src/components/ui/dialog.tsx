@@ -47,7 +47,7 @@ const DialogOverlay = forwardRef<
 const DialogContent = forwardRef<
   ElementRef<typeof DialogPrimitive.Content>,
   ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, onInteractOutside, ...props }, ref) => (
+>(({ className, children, onInteractOutside, onFocusOutside, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
@@ -74,6 +74,16 @@ const DialogContent = forwardRef<
           return;
         }
         onInteractOutside?.(e);
+      }}
+      // Dialogs are non-modal (see Dialog above), so Radix dismisses one
+      // whenever focus lands outside it. A dropdown or context menu that
+      // opens a dialog hands focus back to its own trigger as it closes —
+      // outside the dialog — which dismissed the dialog the moment it
+      // opened (reliably in Firefox). Esc, the close button and backdrop
+      // clicks still dismiss it.
+      onFocusOutside={(e) => {
+        e.preventDefault();
+        onFocusOutside?.(e);
       }}
       {...props}
     >
