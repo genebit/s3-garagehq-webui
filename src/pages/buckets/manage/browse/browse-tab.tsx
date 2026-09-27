@@ -1,18 +1,29 @@
 import { useSearchParams } from "react-router-dom";
-import { Card } from "@/components/ui/card";
-
-import ObjectList from "./object-list";
 import { useEffect, useRef, useState } from "react";
-import ObjectListNavigator from "./object-list-navigator";
-import Actions from "./actions";
-import { useBucketContext } from "../context";
-import ShareDialog from "./share-dialog";
-import BulkActions from "./bulk-actions";
+import { useStore } from "zustand";
+import { PanelRightClose, PanelRightOpen, UploadCloud } from "lucide-react";
+import { toast } from "sonner";
+import { Card } from "@/components/ui/card";
+import Button from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { readDataTransferItems } from "@/lib/file-drop";
 import { uploadStore } from "@/stores/upload-store";
-import { UploadCloud } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { toast } from "sonner";
+import appStore from "@/stores/app-store";
+import { useDebounce } from "@/hooks/useDebounce";
+import { useFillHeight } from "@/hooks/useFillHeight";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useBucketContext } from "../context";
+import Actions from "./actions";
+import { BrowseContext, BrowseContextValue } from "./browse-context";
+import BulkActions from "./bulk-actions";
+import MoveDialog from "./move-dialog";
+import ObjectList from "./object-list";
+import ObjectListNavigator from "./object-list-navigator";
+import PreviewPane from "./preview-pane";
+import RenameDialog from "./rename-dialog";
+import SearchBox from "./search-box";
+import ShareDialog from "./share-dialog";
+import { useDeleteKeys } from "./use-delete-keys";
 
 const getInitialPrefixes = (searchParams: URLSearchParams) => {
   const prefix = searchParams.get("prefix");
@@ -23,6 +34,10 @@ const getInitialPrefixes = (searchParams: URLSearchParams) => {
   return [];
 };
 
+/** True when `key` is one of `keys`, or inside one of the folders in `keys`. */
+const isCovered = (key: string, keys: string[]) =>
+  keys.some((k) => key === k || (k.endsWith("/") && key.startsWith(k)));
+
 const BrowseTab = () => {
   const { bucket, bucketName } = useBucketContext();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -31,8 +46,19 @@ const BrowseTab = () => {
   );
   const [curPrefix, setCurPrefix] = useState(prefixHistory.length - 1);
   const [selected, setSelected] = useState<string[]>([]);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [previewKey, setPreviewKey] = useState<string | null>(null);
+  const [renameKey, setRenameKey] = useState<string | null>(null);
+  const [moveKeys, setMoveKeys] = useState<string[] | null>(null);
   const [dragging, setDragging] = useState(false);
   const dragCounter = useRef(0);
+  const areaRef = useRef<HTMLDivElement>(null);
+
+  const height = useFillHeight(areaRef);
+  const isWide = useMediaQuery("(min-width: 1280px)");
+  const paneCollapsed = useStore(appStore, (s) => s.browsePaneCollapsed);
+  const applySearch = useDebounce(setSearch, 300);
 
   const prefix = prefixHistory[curPrefix] || "";
 
@@ -41,12 +67,52 @@ const BrowseTab = () => {
     newParams.set("prefix", prefix);
     setSearchParams(newParams);
     setSelected([]);
+    setSearchInput("");
+    setSearch("");
+    setPreviewKey(null);
   }, [curPrefix]);
+
+  // Esc closes the floating details pane.
+  useEffect(() => {
+    if (isWide || !previewKey) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPreviewKey(null);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isWide, previewKey]);
+
+  const deleteKeys = useDeleteKeys((keys) => {
+    setSelected((s) => s.filter((k) => !isCovered(k, keys)));
+    setPreviewKey((k) => (k && isCovered(k, keys) ? null : k));
+  });
+
+  const onRenamed = (oldKey: string, newKey: string) => {
+    setSelected((s) => s.filter((k) => !isCovered(k, [oldKey])));
+    // Keep the pane on the renamed file (or the same file in a renamed folder).
+    setPreviewKey((k) =>
+      k && isCovered(k, [oldKey]) ? newKey + k.slice(oldKey.length) : k
+    );
+  };
 
   const gotoPrefix = (prefix: string) => {
     const history = prefixHistory.slice(0, curPrefix + 1);
     setPrefixHistory([...history, prefix]);
     setCurPrefix(history.length);
+  };
+
+  const openPreview = (key: string) => {
+    setPreviewKey(key);
+    if (isWide && paneCollapsed) appStore.setBrowsePaneCollapsed(false);
+  };
+
+  const onSearchChange = (value: string) => {
+    setSearchInput(value);
+    if (!value.trim()) {
+      setSearch("");
+    } else {
+      applySearch(value.trim());
+    }
   };
 
   const onDragEnter = (e: React.DragEvent) => {
@@ -101,57 +167,108 @@ const BrowseTab = () => {
     );
   }
 
+  const browseContext: BrowseContextValue = {
+    prefix,
+    previewKey,
+    openFolder: gotoPrefix,
+    openPreview,
+    openRename: setRenameKey,
+    openMove: setMoveKeys,
+    deleteKeys: deleteKeys.run,
+    isDeleting: deleteKeys.isPending,
+  };
+
   return (
-    <div
-      onDragEnter={onDragEnter}
-      onDragOver={(e) => {
-        if (dragging) e.preventDefault();
-      }}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
-    >
-      <Card className="relative overflow-hidden pb-2">
-        <ObjectListNavigator
-          curPrefix={curPrefix}
-          setCurPrefix={setCurPrefix}
-          prefixHistory={prefixHistory}
-          actions={<Actions prefix={prefix} />}
-        />
-
-        <BulkActions
-          selected={selected}
-          prefix={prefix}
-          onClear={() => setSelected([])}
-        />
-
-        <ObjectList
-          key={prefix}
-          prefix={prefix}
-          onPrefixChange={gotoPrefix}
-          selected={selected}
-          onSelectedChange={setSelected}
-        />
-
-        <ShareDialog />
-
+    <BrowseContext.Provider value={browseContext}>
+      <div ref={areaRef} className="relative flex gap-4" style={{ height }}>
         <div
-          className={cn(
-            "pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-background/80 backdrop-blur-sm transition-opacity",
-            dragging ? "opacity-100" : "opacity-0"
-          )}
+          className="relative flex min-w-0 flex-1 flex-col"
+          onDragEnter={onDragEnter}
+          onDragOver={(e) => {
+            if (dragging) e.preventDefault();
+          }}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
         >
-          <div className="flex flex-col items-center gap-2 text-primary">
-            <UploadCloud size={40} />
-            <p className="text-sm font-medium">
-              Drop files or folders to upload
-            </p>
-            {prefix ? (
-              <p className="text-xs text-muted-foreground">into /{prefix}</p>
-            ) : null}
+          <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
+            <ObjectListNavigator
+              curPrefix={curPrefix}
+              setCurPrefix={setCurPrefix}
+              prefixHistory={prefixHistory}
+              search={<SearchBox value={searchInput} onChange={onSearchChange} />}
+              actions={
+                <>
+                  <Actions prefix={prefix} />
+                  {isWide ? (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      icon={paneCollapsed ? PanelRightOpen : PanelRightClose}
+                      aria-label={paneCollapsed ? "Show details" : "Hide details"}
+                      title={paneCollapsed ? "Show details" : "Hide details"}
+                      onClick={() => appStore.setBrowsePaneCollapsed(!paneCollapsed)}
+                    />
+                  ) : null}
+                </>
+              }
+            />
+
+            <BulkActions selected={selected} onClear={() => setSelected([])} />
+
+            <ObjectList
+              key={`${prefix}\u0000${search}`}
+              search={search}
+              selected={selected}
+              onSelectedChange={setSelected}
+            />
+          </Card>
+
+          <div
+            className={cn(
+              "pointer-events-none absolute inset-0 z-20 flex items-center justify-center rounded-xl border-2 border-dashed border-primary bg-background/80 backdrop-blur-sm transition-opacity",
+              dragging ? "opacity-100" : "opacity-0"
+            )}
+          >
+            <div className="flex flex-col items-center gap-2 text-primary">
+              <UploadCloud size={40} />
+              <p className="text-sm font-medium">Drop files or folders to upload</p>
+              {prefix ? (
+                <p className="text-xs text-muted-foreground">into /{prefix}</p>
+              ) : null}
+            </div>
           </div>
         </div>
-      </Card>
-    </div>
+
+        {isWide && !paneCollapsed ? (
+          <PreviewPane
+            objectKey={previewKey}
+            floating={false}
+            onClose={() => appStore.setBrowsePaneCollapsed(true)}
+          />
+        ) : null}
+        {!isWide && previewKey ? (
+          <PreviewPane
+            objectKey={previewKey}
+            floating
+            onClose={() => setPreviewKey(null)}
+          />
+        ) : null}
+      </div>
+
+      <ShareDialog />
+      <RenameDialog
+        objectKey={renameKey}
+        onClose={() => setRenameKey(null)}
+        onRenamed={onRenamed}
+      />
+      <MoveDialog
+        open={!!moveKeys}
+        onOpenChange={(open) => !open && setMoveKeys(null)}
+        items={moveKeys || []}
+        currentPrefix={prefix}
+        onMoved={() => setSelected([])}
+      />
+    </BrowseContext.Provider>
   );
 };
 

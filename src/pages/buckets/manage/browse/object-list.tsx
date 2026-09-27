@@ -1,23 +1,11 @@
-import { useBrowseObjects } from "./hooks";
-import { dayjs, readableBytes } from "@/lib/utils";
-import mime from "mime/lite";
-import { Object } from "./types";
+import { useEffect, useRef, useState } from "react";
+import { CircleXIcon, DownloadIcon, Folder, Loader2 } from "lucide-react";
 import { API_URL } from "@/lib/api";
-import {
-  CircleXIcon,
-  FileArchive,
-  FileIcon,
-  FileType,
-  Folder,
-  Loader2,
-} from "lucide-react";
-import { useBucketContext } from "../context";
-import ObjectActions from "./object-actions";
-import GotoTopButton from "@/components/ui/goto-top-btn";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { cn, dayjs, readableBytes } from "@/lib/utils";
+import Button from "@/components/ui/button";
 import Checkbox from "@/components/ui/checkbox";
 import Pagination from "@/components/ui/pagination";
-import { useEffect, useState } from "react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Table,
   TableBody,
@@ -25,41 +13,68 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { useBucketContext } from "../context";
+import { useBrowseContext } from "./browse-context";
+import { keyName, objectPath, selectRange, splitExtension } from "./browse-utils";
+import FileTypeIcon from "./file-type-icon";
+import { useBrowseObjects } from "./hooks";
+import { ObjectContextMenu, ObjectRowMenu } from "./object-menu";
+import { MenuTarget } from "./use-object-menu-items";
 
 const PAGE_SIZE = 50;
+const THUMBNAIL_EXTS = ["jpg", "jpeg", "png", "gif"];
 
 type Props = {
-  prefix?: string;
-  onPrefixChange?: (prefix: string) => void;
-  selected?: string[];
-  onSelectedChange?: (keys: string[]) => void;
+  search: string;
+  selected: string[];
+  onSelectedChange: (keys: string[]) => void;
 };
 
-const ObjectList = ({
-  prefix,
-  onPrefixChange,
-  selected = [],
-  onSelectedChange,
-}: Props) => {
+type Row = {
+  key: string;
+  isDir: boolean;
+  size?: number;
+  lastModified?: Date;
+};
+
+const ObjectList = ({ search, selected, onSelectedChange }: Props) => {
   const { bucketName } = useBucketContext();
-  // S3 listing is cursor-based: cursors[i] is the continuation token that
-  // loads page i + 2, recorded as the user pages forward so Prev works.
+  const browse = useBrowseContext();
+  // S3 listing is cursor-based: cursors[i] is the token that loads page
+  // i + 2, recorded as the user pages forward so Prev works.
   const [page, setPage] = useState(1);
   const [cursors, setCursors] = useState<string[]>([]);
+  // Last checkbox clicked; shift-clicking another selects the rows between.
+  const anchorRef = useRef<string | null>(null);
+  const [flash, setFlash] = useState<{ id: number; keys: string[] }>({
+    id: 0,
+    keys: [],
+  });
+
   const { data, error, isLoading } = useBrowseObjects(bucketName, {
-    prefix,
+    prefix: browse.prefix,
     limit: PAGE_SIZE,
+    ...(search ? { search } : {}),
     ...(page > 1 ? { next: cursors[page - 2] } : {}),
   });
 
-  const rowCount = (data?.prefixes.length || 0) + (data?.objects.length || 0);
+  const rows: Row[] = [
+    ...(data?.prefixes || []).map((key) => ({ key, isDir: true })),
+    ...(data?.objects || []).map((o) => ({
+      key: (data?.prefix || "") + o.objectKey,
+      isDir: false,
+      size: o.size,
+      lastModified: o.lastModified,
+    })),
+  ];
+  const allKeys = rows.map((r) => r.key);
 
   // Step back if the current page was emptied (e.g. after a bulk delete).
   useEffect(() => {
-    if (data && page > 1 && rowCount === 0) {
+    if (data && page > 1 && rows.length === 0) {
       setPage((p) => p - 1);
     }
-  }, [data, page, rowCount]);
+  }, [data, page, rows.length]);
 
   const onPageChange = (value: number) => {
     if (value > page) {
@@ -68,215 +83,214 @@ const ObjectList = ({
       setCursors((prev) => [...prev.slice(0, page - 1), token]);
     }
     setPage(value);
-    onSelectedChange?.([]);
+    anchorRef.current = null;
+    onSelectedChange([]);
   };
 
-  const onObjectClick = (object: Object) => {
-    window.open(API_URL + object.url + "?view=1", "_blank");
-  };
-
-  // Full keys of every row: folders keep their trailing "/".
-  const allKeys = [
-    ...(data?.prefixes || []),
-    ...(data?.objects || []).map((o) => (data?.prefix || "") + o.objectKey),
-  ];
   const selectedOnPage = allKeys.filter((k) => selected.includes(k)).length;
   const allSelected = allKeys.length > 0 && selectedOnPage === allKeys.length;
 
   const toggleAll = () => {
-    onSelectedChange?.(allSelected ? [] : allKeys);
+    anchorRef.current = null;
+    onSelectedChange(allSelected ? [] : allKeys);
   };
 
-  const toggleOne = (key: string) => {
-    onSelectedChange?.(
-      selected.includes(key)
-        ? selected.filter((k) => k !== key)
-        : [...selected, key]
+  const onCheckboxClick = (key: string, e: React.MouseEvent) => {
+    const checked = !selected.includes(key);
+    const anchor = anchorRef.current;
+    anchorRef.current = key;
+
+    if (e.shiftKey && anchor && anchor !== key) {
+      const res = selectRange(allKeys, selected, anchor, key, checked);
+      onSelectedChange(res.selected);
+      setFlash((f) => ({ id: f.id + 1, keys: res.changed }));
+      return;
+    }
+    onSelectedChange(
+      checked ? [...selected, key] : selected.filter((k) => k !== key)
     );
   };
 
+  // Right-clicking a row that's part of a multi-selection acts on all of it.
+  const menuTarget = (key: string): MenuTarget =>
+    selected.length > 1 && selected.includes(key)
+      ? { kind: "selection", keys: selected }
+      : { kind: "entry", key };
+
+  const firstItem = (page - 1) * PAGE_SIZE + 1;
+  const range = rows.length
+    ? `Items ${firstItem}–${firstItem + rows.length - 1}`
+    : "No items";
+  const summary = search ? `Results for "${search}" · ${range}` : range;
+
   return (
-    <div className="min-h-[400px] overflow-x-auto">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-10">
-              <Checkbox
-                aria-label="Select all"
-                className="align-middle"
-                checked={
-                  allSelected
-                    ? true
-                    : selectedOnPage > 0
-                      ? "indeterminate"
-                      : false
-                }
-                onCheckedChange={toggleAll}
-              />
-            </TableHead>
-            <TableHead>Name</TableHead>
-            <TableHead>Size</TableHead>
-            <TableHead>Last Modified</TableHead>
-            <TableHead />
-          </TableRow>
-        </TableHeader>
+    <div className="flex min-h-0 flex-1 flex-col">
+      {data?.truncated ? (
+        <p className="shrink-0 border-b bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+          Results may be incomplete — narrow your search.
+        </p>
+      ) : null}
 
-        <TableBody>
-          {isLoading ? (
-            <tr>
-              <td colSpan={5}>
-                <div className="flex h-[320px] items-center justify-center">
-                  <Loader2
-                    size={28}
-                    className="animate-spin text-muted-foreground"
-                  />
-                </div>
-              </td>
-            </tr>
-          ) : error ? (
-            <tr>
-              <td colSpan={5} className="p-4">
-                <Alert variant="destructive">
-                  <CircleXIcon />
-                  <AlertDescription>{error.message}</AlertDescription>
-                </Alert>
-              </td>
-            </tr>
-          ) : !data?.prefixes?.length && !data?.objects?.length ? (
-            <tr>
-              <td
-                className="py-16 text-center text-muted-foreground"
-                colSpan={5}
-              >
-                No objects
-              </td>
-            </tr>
-          ) : null}
-
-          {data?.prefixes.map((prefix) => (
-            <TableRow key={prefix} className="group">
-              <td className="w-10 p-3">
+      <div className="min-h-0 flex-1 overflow-auto">
+        <Table>
+          <TableHeader className="sticky top-0 z-10 bg-card shadow-[inset_0_-1px_0_hsl(var(--border))] [&_tr]:border-0">
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="w-10">
                 <Checkbox
-                  aria-label={`Select ${prefix}`}
+                  aria-label="Select all"
                   className="align-middle"
-                  checked={selected.includes(prefix)}
-                  onCheckedChange={() => toggleOne(prefix)}
+                  checked={
+                    allSelected
+                      ? true
+                      : selectedOnPage > 0
+                        ? "indeterminate"
+                        : false
+                  }
+                  onCheckedChange={toggleAll}
                 />
-              </td>
-              <td
-                className="cursor-pointer p-3"
-                role="button"
-                onClick={() => onPrefixChange?.(prefix)}
-              >
-                <span className="flex items-center gap-2 font-normal">
-                  <Folder size={20} className="text-muted-foreground" />
-                  {prefix
-                    .substring(0, prefix.lastIndexOf("/"))
-                    .split("/")
-                    .pop()}
-                </span>
-              </td>
-              <td colSpan={2} />
-              <ObjectActions object={{ objectKey: prefix, url: "" }} />
+              </TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Size</TableHead>
+              <TableHead>Last Modified</TableHead>
+              <TableHead />
             </TableRow>
-          ))}
+          </TableHeader>
 
-          {data?.objects.map((object) => {
-            const extIdx = object.objectKey.lastIndexOf(".");
-            const filename =
-              extIdx >= 0
-                ? object.objectKey.substring(0, extIdx)
-                : object.objectKey;
-            const ext = extIdx >= 0 ? object.objectKey.substring(extIdx) : null;
-
-            const fullKey = (data?.prefix || "") + object.objectKey;
-
-            return (
-              <TableRow key={object.objectKey} className="group">
-                <td className="w-10 p-3">
-                  <Checkbox
-                    aria-label={`Select ${object.objectKey}`}
-                    className="align-middle"
-                    checked={selected.includes(fullKey)}
-                    onCheckedChange={() => toggleOne(fullKey)}
-                  />
+          <TableBody>
+            {isLoading ? (
+              <tr>
+                <td colSpan={5}>
+                  <div className="flex h-[320px] items-center justify-center">
+                    <Loader2 size={28} className="animate-spin text-muted-foreground" />
+                  </div>
                 </td>
-                <td
-                  className="cursor-pointer p-3"
-                  role="button"
-                  onClick={() => onObjectClick(object)}
+              </tr>
+            ) : error ? (
+              <tr>
+                <td colSpan={5} className="p-4">
+                  <Alert variant="destructive">
+                    <CircleXIcon />
+                    <AlertDescription>{error.message}</AlertDescription>
+                  </Alert>
+                </td>
+              </tr>
+            ) : !rows.length ? (
+              <tr>
+                <td className="py-16 text-center text-muted-foreground" colSpan={5}>
+                  {search ? `No matches for "${search}"` : "No objects"}
+                </td>
+              </tr>
+            ) : null}
+
+            {rows.map((row) => {
+              const name = keyName(row.key);
+              const [base, ext] = row.isDir ? [name, ""] : splitExtension(name);
+              const url = API_URL + objectPath(bucketName, row.key);
+              const isSelected = selected.includes(row.key);
+              const flashIndex = flash.keys.indexOf(row.key);
+
+              return (
+                <ObjectContextMenu
+                  // A new key restarts the highlight animation.
+                  key={flashIndex >= 0 ? `${row.key}:${flash.id}` : row.key}
+                  target={menuTarget(row.key)}
                 >
-                  <span className="flex w-full items-center font-normal">
-                    <FilePreview ext={ext?.substring(1)} object={object} />
-                    <span className="max-w-[40vw] truncate">{filename}</span>
-                    {ext && (
-                      <span className="text-muted-foreground">{ext}</span>
+                  <TableRow
+                    data-state={isSelected ? "selected" : undefined}
+                    data-active={browse.previewKey === row.key || undefined}
+                    className={cn(
+                      "group data-[active]:bg-accent data-[active]:shadow-[inset_2px_0_0_hsl(var(--primary))]",
+                      flashIndex >= 0 && "animate-row-flash"
                     )}
-                  </span>
-                </td>
-                <td className="whitespace-nowrap p-3">
-                  {readableBytes(object.size)}
-                </td>
-                <td className="whitespace-nowrap p-3">
-                  {dayjs(object.lastModified).fromNow()}
-                </td>
-                <ObjectActions prefix={data.prefix} object={object} />
-              </TableRow>
-            );
-          })}
-        </TableBody>
-      </Table>
+                    style={
+                      flashIndex >= 0
+                        ? { animationDelay: `${flashIndex * 15}ms` }
+                        : undefined
+                    }
+                  >
+                    <td className="w-10 p-3">
+                      <Checkbox
+                        aria-label={`Select ${name}`}
+                        className="align-middle"
+                        checked={isSelected}
+                        // Shift-click would otherwise select text across rows.
+                        onMouseDown={(e) => e.shiftKey && e.preventDefault()}
+                        onClick={(e) => onCheckboxClick(row.key, e)}
+                      />
+                    </td>
+                    <td
+                      className="cursor-pointer p-3"
+                      role="button"
+                      onClick={() =>
+                        row.isDir
+                          ? browse.openFolder(row.key)
+                          : browse.openPreview(row.key)
+                      }
+                    >
+                      <span className="flex w-full items-center font-normal">
+                        {row.isDir ? (
+                          <Folder size={20} className="mr-2 shrink-0 text-muted-foreground" />
+                        ) : (
+                          <RowIcon name={name} url={url} />
+                        )}
+                        <span className="max-w-[40vw] truncate">{base}</span>
+                        {ext ? <span className="text-muted-foreground">{ext}</span> : null}
+                      </span>
+                    </td>
+                    <td className="whitespace-nowrap p-3">
+                      {row.isDir ? null : readableBytes(row.size)}
+                    </td>
+                    <td className="whitespace-nowrap p-3">
+                      {row.lastModified ? dayjs(row.lastModified).fromNow() : null}
+                    </td>
+                    <td className="w-auto !p-0">
+                      <span className="flex w-full flex-row justify-end gap-1 pr-2">
+                        {!row.isDir ? (
+                          <Button
+                            icon={DownloadIcon}
+                            variant="ghost"
+                            size="icon"
+                            aria-label={`Download ${name}`}
+                            onClick={() => window.open(url + "?dl=1", "_blank")}
+                          />
+                        ) : null}
+                        <ObjectRowMenu target={{ kind: "entry", key: row.key }} />
+                      </span>
+                    </td>
+                  </TableRow>
+                </ObjectContextMenu>
+              );
+            })}
+          </TableBody>
+        </Table>
+      </div>
 
-      {data && (page > 1 || data.nextToken) ? (
+      {data ? (
         <Pagination
-          className="border-t px-3 pt-2"
+          className="shrink-0 border-t px-3 py-2"
           page={page}
           hasNext={!!data.nextToken}
           onPageChange={onPageChange}
-          summary={
-            rowCount
-              ? `Items ${(page - 1) * PAGE_SIZE + 1}–${(page - 1) * PAGE_SIZE + rowCount}`
-              : null
-          }
+          summary={summary}
         />
       ) : null}
-
-      <GotoTopButton />
     </div>
   );
 };
 
-type FilePreviewProps = {
-  ext?: string | null;
-  object: Object;
-};
-
-const FilePreview = ({ ext, object }: FilePreviewProps) => {
-  const type = mime.getType(ext || "")?.split("/")[0];
-  let Icon = FileIcon;
-
-  if (
-    ["zip", "rar", "7z", "iso", "tar", "gz", "bz2", "xz"].includes(ext || "")
-  ) {
-    Icon = FileArchive;
-  }
-
-  if (type === "image") {
-    const thumbnailSupport = ["jpg", "jpeg", "png", "gif"].includes(ext || "");
+const RowIcon = ({ name, url }: { name: string; url: string }) => {
+  const ext = splitExtension(name)[1].slice(1).toLowerCase();
+  if (THUMBNAIL_EXTS.includes(ext)) {
     return (
       <img
-        src={API_URL + object.url + (thumbnailSupport ? "?thumb=1" : "?view=1")}
-        alt={object.objectKey}
-        className="mr-2 size-5 overflow-hidden object-cover"
+        src={url + "?thumb=1"}
+        alt=""
+        loading="lazy"
+        className="mr-2 size-5 shrink-0 overflow-hidden object-cover"
       />
     );
   }
-
-  if (type === "text") {
-    Icon = FileType;
-  }
-
-  return <Icon size={20} className="mr-2 text-muted-foreground" />;
+  return <FileTypeIcon name={name} size={20} className="mr-2 shrink-0 text-muted-foreground" />;
 };
 
 export default ObjectList;

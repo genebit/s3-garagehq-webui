@@ -8,6 +8,7 @@ type Props = {
   setCurPrefix: React.Dispatch<React.SetStateAction<number>>;
   prefixHistory: string[];
   actions?: React.ReactNode;
+  search?: React.ReactNode;
 };
 
 const ObjectListNavigator = ({
@@ -15,6 +16,7 @@ const ObjectListNavigator = ({
   setCurPrefix,
   prefixHistory,
   actions,
+  search,
 }: Props) => {
   const onGoBack = () => {
     if (curPrefix >= 0) setCurPrefix(curPrefix - 1);
@@ -69,6 +71,7 @@ const ObjectListNavigator = ({
       </div>
 
       <div className="order-2 flex flex-1 flex-row items-center justify-end gap-1 md:order-3 md:flex-initial">
+        {search}
         {actions}
       </div>
     </div>

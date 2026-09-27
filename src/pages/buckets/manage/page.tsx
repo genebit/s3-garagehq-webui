@@ -78,7 +78,7 @@ const ManageBucketPage = () => {
       )}
 
       {data && (
-        <div className="container">
+        <div>
           <BucketContext.Provider
             value={{ bucket: data, refetch, bucketName: name || "", canManage }}
           >
