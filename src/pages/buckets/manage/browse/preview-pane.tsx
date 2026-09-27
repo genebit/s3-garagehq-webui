@@ -36,6 +36,10 @@ const PreviewPane = ({ objectKey, floating, onClose }: Props) => {
   const name = objectKey ? keyName(objectKey) : "";
   const url = objectKey ? API_URL + objectPath(bucketName, objectKey) : "";
   const size = info.data?.ContentLength;
+  // Object responses are cached for a day, so key the view URL on the ETag:
+  // a file that was overwritten gets a fresh URL instead of the old copy.
+  const etag = info.data?.ETag?.replace(/"/g, "");
+  const viewUrl = url + "?view=1" + (etag ? `&v=${encodeURIComponent(etag)}` : "");
   const kind = previewKind(name, info.data?.ContentType, size);
 
   return (
@@ -76,7 +80,7 @@ const PreviewPane = ({ objectKey, floating, onClose }: Props) => {
             ) : (
               <PreviewContent
                 kind={info.error ? "none" : kind}
-                url={url + "?view=1"}
+                url={viewUrl}
                 name={name}
                 etag={info.data?.ETag}
               />
@@ -104,7 +108,7 @@ const PreviewPane = ({ objectKey, floating, onClose }: Props) => {
               </Detail>
               <Detail label="Path">{objectKey}</Detail>
               <Detail label="ETag">
-                {info.data.ETag?.replace(/"/g, "") || "—"}
+                {etag || "—"}
               </Detail>
             </dl>
           ) : null}
@@ -122,7 +126,7 @@ const PreviewPane = ({ objectKey, floating, onClose }: Props) => {
               variant="outline"
               size="sm"
               icon={ExternalLink}
-              onClick={() => window.open(url + "?view=1", "_blank")}
+              onClick={() => window.open(viewUrl, "_blank")}
             >
               Open in new tab
             </Button>
