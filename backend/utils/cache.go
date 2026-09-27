@@ -20,6 +20,14 @@ func InitCacheManager() {
 	Cache = &CacheManager{
 		cache: &sync.Map{},
 	}
+
+	// Entries are otherwise only dropped when read after expiring, so ones
+	// that are never read again (e.g. one-off search results) would pile up.
+	go func() {
+		for range time.Tick(time.Minute) {
+			Cache.Sweep()
+		}
+	}()
 }
 
 func (c *CacheManager) Set(key string, value interface{}, ttl time.Duration) {
@@ -46,4 +54,14 @@ func (c *CacheManager) Get(key string) interface{} {
 
 func (c *CacheManager) IsExpired(entry CacheEntry) bool {
 	return entry.expiresAt.Before(time.Now())
+}
+
+// Sweep removes every expired entry.
+func (c *CacheManager) Sweep() {
+	c.cache.Range(func(key, value interface{}) bool {
+		if c.IsExpired(value.(CacheEntry)) {
+			c.cache.Delete(key)
+		}
+		return true
+	})
 }
