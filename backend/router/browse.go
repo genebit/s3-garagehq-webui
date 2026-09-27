@@ -9,7 +9,6 @@ import (
 	"khairul169/garage-webui/schema"
 	"khairul169/garage-webui/utils"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -390,7 +389,7 @@ func (b *Browse) MoveObjects(w http.ResponseWriter, r *http.Request) {
 		if newKey == item {
 			continue
 		}
-		if err := moveSingleObject(ctx, client, bucket, item, newKey); err != nil {
+		if err := moveSingleObject(ctx, client, bucket, item, newKey, -1); err != nil {
 			utils.ResponseError(w, fmt.Errorf("cannot move %q: %w", item, err))
 			return
 		}
@@ -420,58 +419,6 @@ func lastSegment(key string) string {
 		return key[idx+1:]
 	}
 	return key
-}
-
-func moveSingleObject(ctx context.Context, client *s3.Client, bucket, key, newKey string) error {
-	_, err := client.CopyObject(ctx, &s3.CopyObjectInput{
-		Bucket:     aws.String(bucket),
-		CopySource: aws.String(url.PathEscape(bucket + "/" + key)),
-		Key:        aws.String(newKey),
-	})
-	if err != nil {
-		return err
-	}
-
-	_, err = client.DeleteObject(ctx, &s3.DeleteObjectInput{
-		Bucket: aws.String(bucket),
-		Key:    aws.String(key),
-	})
-	return err
-}
-
-func moveObjectsWithPrefix(ctx context.Context, client *s3.Client, bucket, prefix, destPrefix string) (int, error) {
-	moved := 0
-	var continuationToken *string
-
-	for {
-		list, err := client.ListObjectsV2(ctx, &s3.ListObjectsV2Input{
-			Bucket:            aws.String(bucket),
-			Prefix:            aws.String(prefix),
-			ContinuationToken: continuationToken,
-		})
-		if err != nil {
-			return moved, err
-		}
-
-		for _, object := range list.Contents {
-			key := *object.Key
-			newKey := destPrefix + strings.TrimPrefix(key, prefix)
-			if newKey == key {
-				continue
-			}
-			if err := moveSingleObject(ctx, client, bucket, key, newKey); err != nil {
-				return moved, err
-			}
-			moved++
-		}
-
-		if list.IsTruncated == nil || !*list.IsTruncated {
-			break
-		}
-		continuationToken = list.NextContinuationToken
-	}
-
-	return moved, nil
 }
 
 func getBucketCredentials(bucket string) (aws.CredentialsProvider, error) {
