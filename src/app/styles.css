@@ -83,3 +83,16 @@
     @apply max-w-5xl;
   }
 }
+
+/* Rows whose selection changed through a shift-click range flash briefly.
+   Only a `from` frame, so the row settles on its normal (selected or not)
+   background; `backwards` holds the tint during the stagger delay. */
+@keyframes row-flash {
+  from {
+    background-color: hsl(var(--primary) / 0.2);
+  }
+}
+
+.animate-row-flash {
+  animation: row-flash 600ms ease-out backwards;
+}

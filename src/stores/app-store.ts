@@ -7,6 +7,7 @@ export type BucketsView = "grid" | "list";
 type AppState = {
   mode: ThemeMode;
   bucketsView: BucketsView;
+  browsePaneCollapsed: boolean;
 };
 
 const store = createStore(
@@ -14,6 +15,7 @@ const store = createStore(
     () => ({
       mode: "dark",
       bucketsView: "grid",
+      browsePaneCollapsed: false,
     }),
     {
       name: "appdata",
@@ -27,6 +29,8 @@ const appStore = {
   toggleMode: () =>
     store.setState((s) => ({ mode: s.mode === "dark" ? "light" : "dark" })),
   setBucketsView: (bucketsView: BucketsView) => store.setState({ bucketsView }),
+  setBrowsePaneCollapsed: (browsePaneCollapsed: boolean) =>
+    store.setState({ browsePaneCollapsed }),
 };
 
 export default appStore;

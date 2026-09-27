@@ -88,6 +88,13 @@ const api = {
     });
   },
 
+  async patch<T = unknown>(url: string, options?: Partial<FetchOptions>) {
+    return this.fetch<T>(url, {
+      ...options,
+      method: "PATCH",
+    });
+  },
+
   async delete<T = any>(url: string, options?: Partial<FetchOptions>) {
     return this.fetch<T>(url, {
       ...options,
