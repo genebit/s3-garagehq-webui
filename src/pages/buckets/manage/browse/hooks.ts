@@ -30,7 +30,7 @@ export const usePutObject = (
   return useMutation({
     // The object is sent as the raw request body (folders have none).
     mutationFn: (body) =>
-      api.put(`/browse/${bucket}/${body.key}`, { body: body.file ?? undefined }),
+      api.put(objectPath(bucket, body.key), { body: body.file ?? undefined }),
     ...options,
   });
 };
@@ -41,7 +41,7 @@ export const useDeleteObject = (
 ) => {
   return useMutation({
     mutationFn: (data) =>
-      api.delete(`/browse/${bucket}/${data.key}`, {
+      api.delete(objectPath(bucket, data.key), {
         params: { recursive: data.recursive },
       }),
     ...options,
@@ -56,7 +56,7 @@ export const useDeleteObjects = (
     mutationFn: (keys) =>
       Promise.all(
         keys.map((key) =>
-          api.delete(`/browse/${bucket}/${key}`, {
+          api.delete(objectPath(bucket, key), {
             params: { recursive: key.endsWith("/") },
           })
         )
