@@ -1,4 +1,4 @@
-FROM node:22-slim AS frontend
+FROM --platform=$BUILDPLATFORM node:22-slim AS frontend
 WORKDIR /app
 
 RUN npm install -g corepack@latest && corepack enable
@@ -9,15 +9,18 @@ RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile
 COPY . .
 RUN pnpm run build
 
-FROM golang:1.23 AS backend
+FROM --platform=$BUILDPLATFORM golang:1.23 AS backend
 WORKDIR /app
+
+ARG TARGETOS
+ARG TARGETARCH
 
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 
 COPY backend/ ./
 COPY --from=frontend /app/dist ./ui/dist
-RUN make
+RUN make TARGETOS=${TARGETOS} TARGETARCH=${TARGETARCH}
 
 FROM scratch
 

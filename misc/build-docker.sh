@@ -2,7 +2,7 @@
 
 set -e
 
-IMAGE_NAME="khairul169/garage-webui"
+IMAGE_NAME="${IMAGE_NAME:-genebit/garage-webui}"
 PACKAGE_VERSION=$(cat package.json | grep \"version\" | cut -d'"' -f 4)
 
 echo "Building version $PACKAGE_VERSION"
